@@ -826,7 +826,10 @@ class ArmorPenetrationCalculator:
                         
                         # 只有击穿时才输出伤害
                         if result['can_penetrate'] and result['damage'] > Decimal('0'):
-                            print(f"造成{result['damage']:.2f}伤害")  # 伤害输出保留两位小数
+                            print(f"造成{result['damage']:.2f}伤害")
+                            # ===== 新增：显示穿手伤害 =====
+                            through_damage = result['damage'] * Decimal('0.88')
+                            print(f"穿手伤害：{through_damage:.2f}")
                         
                         # 输出剩余护甲耐久（输出保留一位小数）
                         print(f"剩余护甲耐久：{result['remaining_durability']:.1f}/{result['current_max_durability']:.1f}")
@@ -842,6 +845,9 @@ class ArmorPenetrationCalculator:
                         
                         if result['can_penetrate'] and result['damage'] > Decimal('0'):
                             print(f"造成{result['damage']:.2f}伤害")
+                            # ===== 新增：显示穿手伤害 =====
+                            through_damage = result['damage'] * Decimal('0.88')
+                            print(f"穿手伤害：{through_damage:.2f}")
                         
                         print(f"剩余护甲耐久：{result['remaining_durability']:.1f}/{result['current_max_durability']:.1f}")
                         
@@ -913,6 +919,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
