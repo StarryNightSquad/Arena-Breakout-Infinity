@@ -6,20 +6,31 @@ print("WX：TangTangMei18")
 print("=" * 50)
 print(" ")
 
-time.sleep(5) # 延时5秒
+time.sleep(5)  # 延时5秒
 
 import openpyxl
 from openpyxl import load_workbook
 import os
-import re
+import sys
 from decimal import Decimal, getcontext, ROUND_HALF_UP
 
 class ArmorPenetrationCalculator:
     def __init__(self):
-        # 设置Decimal精度
-        getcontext().prec = 10  # 设置足够高的精度
+        # ---------- Debug 模式检测 ----------
+        self.debug = False
+        # 方式1: 代码中直接设为 True (永久开启)
+        # self.debug = True
         
-        # 加载所有Excel文件
+        # 方式2: 检测脚本文件名是否包含 ".debug" (例如: calculator.debug.py)
+        if '.debug' in sys.argv[0]:
+            self.debug = True
+        
+        if self.debug:
+            print("[DEBUG] 调试模式已启用，将输出详细计算信息。")
+        
+        # 设置Decimal精度
+        getcontext().prec = 10
+        
         print("正在加载数据文件...")
         
         # 加载穿透数据
@@ -47,17 +58,11 @@ class ArmorPenetrationCalculator:
         """标准化口径字符串，使其能够正确匹配"""
         if not caliber_str:
             return ""
-        
-        # 转换为字符串并标准化格式
         caliber = str(caliber_str).strip()
-        
-        # 统一大小写
         caliber = caliber.upper()
-        
-        # 替换常见的变体
-        caliber = caliber.replace('X', 'x')  # 统一使用小写x
-        caliber = caliber.replace(' ', '')   # 移除空格
-        caliber = caliber.replace('MM', 'mm')  # 统一mm为小写
+        caliber = caliber.replace('X', 'x')
+        caliber = caliber.replace(' ', '')
+        caliber = caliber.replace('MM', 'mm')
         
         # 处理特定格式
         if caliber == '5.56X45MM':
@@ -84,7 +89,6 @@ class ArmorPenetrationCalculator:
             caliber = '.44 Mag'
         elif caliber == '.338 LAPUA MAG':
             caliber = '.338 Lapua Mag'
-        
         return caliber
     
     def load_penetration_data(self):
@@ -92,141 +96,124 @@ class ArmorPenetrationCalculator:
         try:
             wb = load_workbook('穿透数据整理结果.xlsx')
             ws = wb.active
-            
             for row in ws.iter_rows(min_row=2, values_only=True):
-                if row[0] is not None:
+                if row[0] is not None and row[3] is not None:
                     k_value = int(row[0])
-                    # 使用Decimal存储穿透百分比
                     self.penetration_data[k_value] = Decimal(str(row[3]))
-            
             print(f"已加载 {len(self.penetration_data)} 条穿透数据")
-            
+            if self.debug:
+                print("\n[DEBUG] 穿透数据映射表 (K值 → 穿透百分比):")
+                for k, v in sorted(self.penetration_data.items()):
+                    print(f"  K={k:3d}  →  {v:.4f}")
+                print()
         except Exception as e:
             print(f"加载穿透数据失败: {e}")
-            # 使用示例数据作为备选
             self.penetration_data = {
-                -10: Decimal('0.6'), -9: Decimal('0.6053'), -8: Decimal('0.611'), 
-                -7: Decimal('0.615'), -6: Decimal('0.62'), -5: Decimal('0.626'), 
-                -4: Decimal('0.628'), -3: Decimal('0.639'), -1: Decimal('0.645'), 
-                0: Decimal('0.65'), 1: Decimal('0.6556'), 2: Decimal('0.66'), 
+                -10: Decimal('0.6'), -9: Decimal('0.6053'), -8: Decimal('0.611'),
+                -7: Decimal('0.615'), -6: Decimal('0.62'), -5: Decimal('0.626'),
+                -4: Decimal('0.628'), -3: Decimal('0.639'), -1: Decimal('0.645'),
+                0: Decimal('0.65'), 1: Decimal('0.6556'), 2: Decimal('0.66'),
                 3: Decimal('0.666'), 4: Decimal('0.67'), 5: Decimal('0.675'),
-                6: Decimal('0.681'), 7: Decimal('0.685'), 8: Decimal('0.688'), 
-                9: Decimal('0.696'), 10: Decimal('0.9'), 11: Decimal('0.91'), 
-                12: Decimal('0.92'), 13: Decimal('0.93'), 14: Decimal('0.94'), 
+                6: Decimal('0.681'), 7: Decimal('0.685'), 8: Decimal('0.688'),
+                9: Decimal('0.696'), 10: Decimal('0.9'), 11: Decimal('0.91'),
+                12: Decimal('0.92'), 13: Decimal('0.93'), 14: Decimal('0.94'),
                 15: Decimal('0.95'), 17: Decimal('0.97'), 18: Decimal('0.98')
             }
+            if self.debug:
+                print("[DEBUG] 使用内置备选穿透数据。")
     
     def load_weapon_data(self):
         """加载武器数据"""
         try:
             wb = load_workbook('武器数据.xlsx')
             ws = wb.active
-            
             current_category = None
             weapon_id = 0
-            
             for row in ws.iter_rows(min_row=3, values_only=True):
-                if row[0] and not row[1]:  # 武器类别行（如"突击步枪"）
+                if row[0] and not row[1]:
                     current_category = row[0]
                     self.weapons_by_category[current_category] = []
-                elif row[0] and row[1]:  # 武器名称行
+                elif row[0] and row[1]:
                     weapon_id += 1
-                    
-                    # 标准化口径
                     caliber = self.standardize_caliber(row[1])
-                    
                     weapon = {
                         'id': weapon_id,
                         'name': row[0],
                         'category': current_category,
                         'caliber': caliber,
-                        'original_caliber': row[1],  # 保存原始口径用于显示
+                        'original_caliber': row[1],
                         'barrels': []
                     }
-                    
-                    # 添加第一个枪管
                     barrel_name = row[4] if row[4] else "/"
                     barrel = {
                         'name': barrel_name,
                         'firing_power': Decimal(str(row[5])) if row[5] is not None else Decimal('0')
                     }
                     weapon['barrels'].append(barrel)
-                    
                     self.weapons_by_category[current_category].append(weapon)
                     self.weapons_data[weapon_id] = weapon
-                    
-                elif not row[0] and row[4]:  # 额外的枪管行
-                    # 找到最后一个添加的武器
+                elif not row[0] and row[4]:
                     weapon = self.weapons_by_category[current_category][-1]
                     barrel = {
                         'name': row[4],
                         'firing_power': Decimal(str(row[5])) if row[5] is not None else Decimal('0')
                     }
                     weapon['barrels'].append(barrel)
-            
             print(f"已加载 {len(self.weapons_data)} 种武器，分为 {len(self.weapons_by_category)} 个类别")
-            
+            if self.debug:
+                print("[DEBUG] 武器加载详情（仅显示前3个）:")
+                for cat, weapons in list(self.weapons_by_category.items())[:3]:
+                    print(f"  类别: {cat}")
+                    for w in weapons[:3]:
+                        print(f"    {w['name']} (口径: {w['original_caliber']}) 枪管数: {len(w['barrels'])}")
+                print()
         except Exception as e:
             print(f"加载武器数据失败: {e}")
     
     def load_ammo_data(self):
-        """加载弹药数据"""
+        """加载弹药数据 - 修正列索引"""
         try:
             wb = load_workbook('子弹数据.xlsx')
             ws = wb.active
-            
             ammo_id = 0
             current_caliber = None
-            current_original_caliber = None  # 用于保存当前口径的原始值
+            current_original_caliber = None
             
             for row in ws.iter_rows(min_row=3, values_only=True):
-                if row[0]:  # 新口径
-                    # 保存原始口径
+                if row[0]:  # A列：口径
                     current_original_caliber = row[0]
-                    # 标准化口径
                     current_caliber = self.standardize_caliber(row[0])
                     if current_caliber not in self.ammo_by_caliber:
                         self.ammo_by_caliber[current_caliber] = []
                 
-                if row[1]:  # 弹药型号
+                if row[1]:  # B列：弹药型号
                     ammo_id += 1
                     
-                    # 解析穿透等级
+                    # 穿透等级：F列（索引5）
                     penetration_level = 0
-                    if row[4]:  # D列是穿透等级（=ROUNDDOWN(F3/10,0)）
-                        # 尝试从公式结果中提取数字
+                    if row[5] is not None:
                         try:
-                            # 如果是公式字符串，尝试计算
-                            if isinstance(row[4], str) and row[4].startswith('='):
-                                # 从F列获取值并除以10取整
-                                row_num = row[4].split('F')[1].split('/')[0]
-                                f_col_value = ws[f'F{int(row_num)}'].value
-                                if f_col_value:
-                                    penetration_level = int(float(f_col_value) // 10)
-                            else:
-                                # 直接转换
-                                penetration_level = int(float(row[4]))
+                            penetration_level = int(float(row[5]))
                         except:
-                            # 如果解析失败，使用默认值
                             pass
                     
-                    # 解析子弹穿透值（F列）
+                    # 子弹穿透值：G列（索引6）
                     bullet_penetration = Decimal('0')
-                    if row[5]:
+                    if row[6] is not None:
                         try:
-                            bullet_penetration = Decimal(str(row[5]))
+                            bullet_penetration = Decimal(str(row[6]))
                         except:
                             bullet_penetration = Decimal('0')
                     
                     ammo = {
                         'id': ammo_id,
                         'caliber': current_caliber,
-                        'original_caliber': current_original_caliber if current_original_caliber else current_caliber,  # 修复：如果原始口径为None，使用标准化口径
+                        'original_caliber': current_original_caliber if current_original_caliber else current_caliber,
                         'name': row[1],
-                        'damage': self.parse_damage_value(row[2]),
-                        'armor_damage': Decimal(str(row[3])) if row[3] else Decimal('0'),
+                        'damage': self.parse_damage_value(row[2]),       # C列：子弹伤害
+                        'armor_damage': Decimal(str(row[3])) if row[3] else Decimal('0'),  # D列：护甲伤害
                         'penetration_level': penetration_level,
-                        'bullet_penetration': bullet_penetration  # 保存子弹穿透值
+                        'bullet_penetration': bullet_penetration
                     }
                     
                     # 如果穿透等级为0，根据子弹穿透值计算
@@ -236,18 +223,22 @@ class ArmorPenetrationCalculator:
                     self.ammo_by_caliber[current_caliber].append(ammo)
                     self.ammo_data[ammo_id] = ammo
             
-            # 打印所有加载的口径，方便调试
             print(f"已加载 {len(self.ammo_data)} 种子弹，涵盖 {len(self.ammo_by_caliber)} 种口径")
             print("可用口径:", ", ".join(sorted(self.ammo_by_caliber.keys())))
-            
+            if self.debug:
+                print("[DEBUG] 弹药加载详情（每个口径前2种子弹）:")
+                for cal, ammos in list(self.ammo_by_caliber.items())[:5]:
+                    print(f"  口径: {cal}")
+                    for a in ammos[:2]:
+                        print(f"    {a['name']} 伤害:{a['damage']} 穿甲等级:{a['penetration_level']} 子弹穿透:{a['bullet_penetration']}")
+                print()
         except Exception as e:
             print(f"加载弹药数据失败: {e}")
     
     def parse_damage_value(self, damage_str):
-        """解析伤害值（处理像"86*2"这样的格式）"""
+        """解析伤害值（处理像'86*2'这样的格式）"""
         if not damage_str:
             return Decimal('0')
-        
         damage_str = str(damage_str)
         if '*' in damage_str:
             parts = damage_str.split('*')
@@ -266,163 +257,113 @@ class ArmorPenetrationCalculator:
         try:
             wb = load_workbook('护甲信息.xlsx')
             ws = wb.active
-            
             armor_id = 0
-            
             for row in ws.iter_rows(min_row=3, values_only=True):
-                if row[0] and row[1]:  # 护甲名称和等级
+                if row[0] and row[1]:
                     armor_id += 1
-                    
-                    # 解析材质信息（C列，索引2）
                     material = row[2] if row[2] else "未知材质"
-                    
-                    # 解析耐久值
                     durability = Decimal('0')
-                    if row[3]:
+                    if row[3] is not None:
                         try:
-                            if isinstance(row[3], (int, float)):
-                                durability = Decimal(str(row[3]))
-                            else:
-                                # 如果是公式，尝试计算
-                                if isinstance(row[3], str) and row[3].startswith('='):
-                                    # 简单处理公式 =D3/E3
-                                    try:
-                                        d_col = row[3].split('=')[1].split('/')[0]
-                                        e_col = row[3].split('=')[1].split('/')[1]
-                                        # 这里简化处理，实际应该解析单元格引用
-                                        # 由于数据中已经有计算好的值，我们可以使用后面的等效耐久列
-                                        if row[5] and isinstance(row[5], (int, float)):
-                                            durability = Decimal(str(row[5]))
-                                    except:
-                                        pass
-                                else:
-                                    durability = Decimal(str(row[3]).replace(',', '.'))
+                            durability = Decimal(str(row[3]))
                         except:
-                            durability = Decimal('0')
-                    
-                    # 解析损毁系数
+                            pass
                     destruction_coef = Decimal('0')
-                    if row[4]:
+                    if row[4] is not None:
                         try:
-                            if isinstance(row[4], (int, float)):
-                                destruction_coef = Decimal(str(row[4]))
-                            else:
-                                destruction_coef = Decimal(str(row[4]).replace(',', '.'))
+                            destruction_coef = Decimal(str(row[4]))
                         except:
-                            destruction_coef = Decimal('0')
-                    
+                            pass
                     armor = {
                         'id': armor_id,
                         'name': row[0],
                         'level': int(row[1]),
-                        'material': material,  # 添加材质信息
+                        'material': material,
                         'durability': durability,
                         'destruction_coef': destruction_coef,
-                        'current_durability': durability  # 初始时当前耐久等于总耐久
+                        'current_durability': durability
                     }
-                    
                     level = armor['level']
                     if level not in self.armor_by_level:
                         self.armor_by_level[level] = []
-                    
                     self.armor_by_level[level].append(armor)
                     self.armor_data[armor_id] = armor
-            
             print(f"已加载 {len(self.armor_data)} 件护甲")
-            
+            if self.debug:
+                print("[DEBUG] 护甲加载详情（每个等级前2件）:")
+                for lvl, armors in list(self.armor_by_level.items())[:5]:
+                    print(f"  等级 {lvl}:")
+                    for a in armors[:2]:
+                        print(f"    {a['name']} 耐久:{a['durability']} 损毁系数:{a['destruction_coef']}")
+                print()
         except Exception as e:
             print(f"加载护甲数据失败: {e}")
     
     def check_penetration_status(self, ammo_penetration_level, armor_level, armor_current_durability, armor_max_durability):
-        """
-        检查击穿状态
-        返回: (can_penetrate, penetration_type)
-        can_penetrate: True/False 是否能击穿
-        penetration_type: "必定击穿护甲", "概率击穿护甲", "无法击穿护甲"
-        """
-        # 规则1: 当子弹穿透等级≥护甲等级，则必定击穿护甲
         if ammo_penetration_level >= armor_level:
             return True, "必定击穿护甲"
-        
-        # 规则2: 当子弹穿透等级＜护甲等级，则根据护甲耐久计算
         level_difference = armor_level - ammo_penetration_level
-        
-        # 计算耐久比例
         if armor_max_durability <= Decimal('0'):
-            return True, "必定击穿护甲"  # 如果护甲最大耐久为0，直接击穿
-        
+            return True, "必定击穿护甲"
         durability_ratio = armor_current_durability / armor_max_durability
-        
-        # 根据耐久比例判断击穿状态
-        # 1 > 耐久比例 > 1/2: 概率被低一级子弹击穿
-        # 1/2 ≥ 耐久比例 > 1/4: 必定被低一级子弹击穿，概率被低两级子弹击穿
-        # 以此类推
-        
-        # 计算需要的耐久减半次数
-        required_half_lives = level_difference
-        
-        # 根据耐久比例计算已经减半的次数
         import math
         if durability_ratio <= Decimal('0'):
-            # 耐久为0或负数，视为已经减半无限次
             return True, "必定击穿护甲"
-        
-        # 使用Decimal计算log2，先将Decimal转换为float进行计算，再转换回Decimal
-        # 注意：这里使用float可能会损失一些精度，但对于比较大小足够
         ratio_float = float(durability_ratio)
         if ratio_float > 0:
             half_lives_completed = math.floor(-math.log2(ratio_float))
         else:
             half_lives_completed = float('inf')
-        
-        if half_lives_completed >= required_half_lives:
-            # 已经减半足够次数，必定击穿
+        if half_lives_completed >= level_difference:
             return True, "必定击穿护甲"
-        elif half_lives_completed == required_half_lives - 1:
-            # 只差一次减半，概率击穿
+        elif half_lives_completed == level_difference - 1:
             return True, "概率击穿护甲"
         else:
-            # 减半次数不足，无法击穿
             return False, "无法击穿护甲"
     
     def calculate_penetration_percentage(self, k_value):
-        """根据K值计算穿透百分比"""
         k_value_int = int(k_value)
-        
+        if self.debug:
+            print(f"[DEBUG] calculate_penetration_percentage: k_value={k_value}, k_int={k_value_int}")
         if k_value_int < -10:
-            return Decimal('0.6')  # K值小于-10时固定60%
+            result = Decimal('0.6')
+            if self.debug:
+                print("[DEBUG] K值 < -10，固定返回 0.6")
         elif k_value_int > 20:
-            return Decimal('1.0')  # K值大于20时固定100%
-        
-        # 找到最接近的K值
-        if k_value_int in self.penetration_data:
-            return self.penetration_data[k_value_int]
+            result = Decimal('1.0')
+            if self.debug:
+                print("[DEBUG] K值 > 20，固定返回 1.0")
         else:
-            # 如果K值不在表中，找最接近的值
-            closest_k = min(self.penetration_data.keys(), key=lambda x: abs(x - k_value_int))
-            return self.penetration_data[closest_k]
+            if k_value_int in self.penetration_data:
+                result = self.penetration_data[k_value_int]
+                if self.debug:
+                    print(f"[DEBUG] 精确匹配 K={k_value_int}")
+            else:
+                closest_k = min(self.penetration_data.keys(), key=lambda x: abs(x - k_value_int))
+                result = self.penetration_data[closest_k]
+                if self.debug:
+                    print(f"[DEBUG] 未精确匹配，使用最近 K={closest_k}")
+        if self.debug:
+            print(f"[DEBUG] 返回穿透百分比: {result:.4f}")
+        return result
     
     def calculate_damage(self, weapon, barrel, ammo, armor, current_durability, current_max_durability=None):
-        """计算伤害"""
         if current_max_durability is None:
             current_max_durability = armor['durability']
-            
-        # 检查击穿状态
+        if self.debug:
+            print(f"[DEBUG] calculate_damage 输入: 弹药穿透等级={ammo['penetration_level']}, 护甲等级={armor['level']}, 当前耐久={current_durability}, 上限={current_max_durability}")
         can_penetrate, penetration_type = self.check_penetration_status(
             ammo['penetration_level'],
             armor['level'],
             current_durability,
             current_max_durability
         )
-        
-        # 计算护甲损伤（精确到小数点后两位）
         armor_damage = (ammo['armor_damage'] * armor['destruction_coef']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         new_durability = (current_durability - armor_damage).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        
-        # 确保剩余耐久不为负数
         if new_durability < Decimal('0'):
             new_durability = Decimal('0')
-        
+        if self.debug:
+            print(f"[DEBUG] 击穿状态: {penetration_type}, can_penetrate={can_penetrate}")
         if not can_penetrate:
             return {
                 'can_penetrate': False,
@@ -431,20 +372,16 @@ class ArmorPenetrationCalculator:
                 'armor_damage_dealt': armor_damage,
                 'remaining_durability': new_durability,
                 'is_destroyed': new_durability <= Decimal('0'),
-                'current_max_durability': current_max_durability  # 保存当前上限
+                'current_max_durability': current_max_durability
             }
-        
-        # 如果可以击穿，计算详细伤害
-        # 计算K值（使用子弹穿透值 - 护甲等级×10）
         k_value = ammo['bullet_penetration'] - Decimal(str(armor['level'])) * Decimal('10')
-        
-        # 获取穿透百分比
+        if self.debug:
+            print(f"[DEBUG] K值计算: {ammo['bullet_penetration']} - {armor['level']}*10 = {k_value}")
         penetration_percentage = self.calculate_penetration_percentage(k_value)
-        
-        # 计算伤害（精确到小数点后四位）
         base_damage = ammo['damage'] + barrel['firing_power']
         damage = (base_damage * penetration_percentage).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
-        
+        if self.debug:
+            print(f"[DEBUG] 基础伤害={base_damage}, 穿透百分比={penetration_percentage:.4f}, 最终伤害={damage}")
         return {
             'can_penetrate': True,
             'penetration_type': penetration_type,
@@ -454,19 +391,16 @@ class ArmorPenetrationCalculator:
             'armor_damage_dealt': armor_damage,
             'remaining_durability': new_durability,
             'is_destroyed': new_durability <= Decimal('0'),
-            'current_max_durability': current_max_durability  # 保存当前上限
+            'current_max_durability': current_max_durability
         }
     
     def select_weapon(self):
-        """选择武器"""
         print("=" * 50)
         print("请选择武器类别:")
-        
         categories = list(self.weapons_by_category.keys())
         for i, category in enumerate(categories, 1):
             weapon_count = len(self.weapons_by_category[category])
             print(f"{i}. {category} ({weapon_count}种武器)")
-        
         while True:
             try:
                 choice = int(input(f"\n请选择类别 (1-{len(categories)}): "))
@@ -477,16 +411,12 @@ class ArmorPenetrationCalculator:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
-        
         print(f"\n{selected_category} 包含以下武器:")
         weapons = self.weapons_by_category[selected_category]
-        
         for i, weapon in enumerate(weapons, 1):
             barrels_info = f" ({len(weapon['barrels'])}种枪管)" if len(weapon['barrels']) > 1 else ""
-            # 显示原始口径
             display_caliber = weapon.get('original_caliber', weapon['caliber'])
             print(f"{i}. {weapon['name']} - {display_caliber}{barrels_info}")
-        
         while True:
             try:
                 weapon_choice = int(input(f"\n请选择武器 (1-{len(weapons)}): "))
@@ -497,88 +427,77 @@ class ArmorPenetrationCalculator:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
-        
+        if self.debug:
+            print(f"[DEBUG] 选中武器: {selected_weapon['name']} (ID={selected_weapon['id']})")
         return selected_weapon
     
     def select_barrel(self, weapon):
-        """选择枪管"""
         print(f"\n{weapon['name']} 可用的枪管:")
-        
         barrels = weapon['barrels']
         if len(barrels) == 1 and barrels[0]['name'] == "/":
             print("该武器只有默认枪管")
             return barrels[0]
-        
         for i, barrel in enumerate(barrels, 1):
             power = barrel['firing_power']
             power_sign = "+" if power >= Decimal('0') else ""
             print(f"{i}. {barrel['name']} (击发威力: {power_sign}{power:.0f})")
-        
         while True:
             try:
                 choice = int(input(f"\n请选择枪管 (1-{len(barrels)}): "))
                 if 1 <= choice <= len(barrels):
-                    return barrels[choice-1]
+                    selected_barrel = barrels[choice-1]
+                    break
                 else:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
+        if self.debug:
+            print(f"[DEBUG] 选中枪管: {selected_barrel['name']} 威力={selected_barrel['firing_power']}")
+        return selected_barrel
     
     def select_ammo(self, caliber):
-        """选择弹药"""
-        # 标准化口径
         standardized_caliber = self.standardize_caliber(caliber)
-        
         print(f"\n{caliber} 口径可用的弹药:")
-        
+        if self.debug:
+            print(f"[DEBUG] 标准化口径: {standardized_caliber}")
         if standardized_caliber not in self.ammo_by_caliber:
-            # 尝试查找所有可能匹配的口径
             print(f"警告: 未找到标准化口径 '{standardized_caliber}' 的弹药数据！")
             print(f"可用口径: {', '.join(self.ammo_by_caliber.keys())}")
-            
-            # 尝试查找相似口径
             matching_calibers = []
             for available_caliber in self.ammo_by_caliber.keys():
                 if standardized_caliber in available_caliber or available_caliber in standardized_caliber:
                     matching_calibers.append(available_caliber)
-            
             if matching_calibers:
                 print(f"发现相似口径: {', '.join(matching_calibers)}")
-                # 使用第一个匹配的口径
                 standardized_caliber = matching_calibers[0]
                 print(f"自动选择: {standardized_caliber}")
             else:
                 print("无法找到匹配的口径弹药！")
                 return None
-        
         ammo_list = self.ammo_by_caliber[standardized_caliber]
-        
-        # 使用从1开始的连续编号显示弹药列表
         for i, ammo in enumerate(ammo_list, 1):
-            # 显示原始口径
             display_caliber = ammo.get('original_caliber', ammo['caliber'])
             print(f"{i}. {ammo['name']} - 伤害: {ammo['damage']:.0f}, 穿甲等级: {ammo['penetration_level']}, 护甲伤害: {ammo['armor_damage']:.1f}")
-        
         while True:
             try:
                 choice = int(input(f"\n请选择弹药 (1-{len(ammo_list)}): "))
                 if 1 <= choice <= len(ammo_list):
                     selected_ammo = ammo_list[choice-1]
-                    return selected_ammo
+                    break
                 else:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
+        if self.debug:
+            print(f"[DEBUG] 选中弹药: {selected_ammo['name']} (ID={selected_ammo['id']}, 子弹穿透={selected_ammo['bullet_penetration']})")
+        return selected_ammo
     
     def select_armor(self):
-        """选择护甲"""
         print("\n请选择护甲等级:")
-        
         levels = sorted(self.armor_by_level.keys())
         for level in levels:
             armor_count = len(self.armor_by_level[level])
             print(f"{level}. 防护等级{level} ({armor_count}件)")
-        
         while True:
             try:
                 level = int(input(f"\n请选择防护等级 ({levels[0]}-{levels[-1]}): "))
@@ -588,15 +507,11 @@ class ArmorPenetrationCalculator:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
-        
         print(f"\n防护等级 {level} 的护甲:")
         armors = self.armor_by_level[level]
-        
-        # 显示护甲列表，包括材质信息
         for i, armor in enumerate(armors, 1):
             material = armor.get('material', '未知材质')
             print(f"{i}. {armor['name']} - 材质: {material} - 耐久: {armor['durability']:.1f}")
-        
         while True:
             try:
                 choice = int(input(f"\n请选择护甲 (1-{len(armors)}): "))
@@ -607,81 +522,54 @@ class ArmorPenetrationCalculator:
                     print("输入无效，请重新选择。")
             except ValueError:
                 print("请输入数字。")
-        
-        # 设置护甲当前上限和当前耐久
         print("\n" + "=" * 50)
         print("护甲耐久设置")
         print("=" * 50)
         print(f"护甲: {selected_armor['name']}")
         print(f"材质: {selected_armor.get('material', '未知材质')}")
         print(f"初始耐久上限: {selected_armor['durability']:.1f}")
-        
-        # 询问是否设置自定义耐久
         while True:
-            custom_input = input(f"\n是否设置自定义耐久？(Y/N, 输入N则使用初始耐久上限和耐久): ").strip().upper()
+            custom_input = input("\n是否设置自定义耐久？(Y/N, 输入N则使用初始耐久上限和耐久): ").strip().upper()
             if custom_input == 'Y':
-                # 设置当前上限
                 while True:
                     try:
                         max_input = input(f"\n请输入当前护甲上限 (最多一位小数, 0-{selected_armor['durability']:.1f}): ").strip()
-                        
-                        # 检查输入格式
                         if not max_input.replace('.', '').isdigit():
                             print("输入必须为数字，请重新输入。")
                             continue
-                        
-                        # 检查小数位数
                         if '.' in max_input:
                             decimal_parts = max_input.split('.')
-                            if len(decimal_parts) > 2:
-                                print("输入格式错误，请重新输入。")
+                            if len(decimal_parts) > 2 or len(decimal_parts[1]) > 1:
+                                print("格式错误，最多一位小数。")
                                 continue
-                            if len(decimal_parts[1]) > 1:
-                                print("最多允许一位小数，请重新输入。")
-                                continue
-                        
                         max_durability = Decimal(max_input)
-                        
                         if Decimal('0') <= max_durability <= selected_armor['durability']:
                             current_max_durability = max_durability
                             break
                         else:
-                            print(f"当前上限必须在0-{selected_armor['durability']:.1f}之间，请重新输入。")
+                            print(f"当前上限必须在0-{selected_armor['durability']:.1f}之间。")
                     except Exception as e:
-                        print(f"输入无效: {e}，请重新输入。")
-                
-                # 设置当前耐久
+                        print(f"输入无效: {e}")
                 while True:
                     try:
                         durability_input = input(f"\n请输入当前护甲耐久 (最多一位小数, 0-{current_max_durability:.1f}): ").strip()
-                        
-                        # 检查输入格式
                         if not durability_input.replace('.', '').isdigit():
                             print("输入必须为数字，请重新输入。")
                             continue
-                        
-                        # 检查小数位数
                         if '.' in durability_input:
                             decimal_parts = durability_input.split('.')
-                            if len(decimal_parts) > 2:
-                                print("输入格式错误，请重新输入。")
+                            if len(decimal_parts) > 2 or len(decimal_parts[1]) > 1:
+                                print("格式错误，最多一位小数。")
                                 continue
-                            if len(decimal_parts[1]) > 1:
-                                print("最多允许一位小数，请重新输入。")
-                                continue
-                        
                         current_durability = Decimal(durability_input)
-                        
                         if Decimal('0') <= current_durability <= current_max_durability:
                             break
                         else:
-                            print(f"当前耐久必须在0-{current_max_durability:.1f}之间，请重新输入。")
+                            print(f"当前耐久必须在0-{current_max_durability:.1f}之间。")
                     except Exception as e:
-                        print(f"输入无效: {e}，请重新输入。")
-                
+                        print(f"输入无效: {e}")
                 break
             elif custom_input == 'N':
-                # 使用初始值
                 current_max_durability = selected_armor['durability']
                 current_durability = selected_armor['durability']
                 print(f"使用初始耐久上限: {current_max_durability:.1f}")
@@ -689,54 +577,55 @@ class ArmorPenetrationCalculator:
                 break
             else:
                 print("输入无效，请输入 Y 或 N。")
-        
-        # 将设置的值添加到护甲数据中
         selected_armor['current_max_durability'] = current_max_durability
         selected_armor['current_durability'] = current_durability
-        
-        # 显示设置完成信息
         print(f"\n设置完成:")
         print(f"当前护甲上限: {current_max_durability:.1f}")
         print(f"当前护甲耐久: {current_durability:.1f}")
         if current_max_durability > Decimal('0'):
             durability_ratio = (current_durability / current_max_durability).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
             print(f"耐久比例: {durability_ratio:.2%}")
-        
+        if self.debug:
+            print(f"[DEBUG] 选中的护甲: {selected_armor['name']} (等级={selected_armor['level']}, 当前耐久={current_durability}, 上限={current_max_durability})")
         return selected_armor
     
+    def select_armor_level(self):
+        print("\n请选择护甲等级:")
+        levels = sorted(self.armor_by_level.keys())
+        for level in levels:
+            print(f"{level}. 防护等级 {level}")
+        while True:
+            try:
+                level = int(input(f"\n请输入护甲等级 ({levels[0]}-{levels[-1]}): "))
+                if level in levels:
+                    if self.debug:
+                        print(f"[DEBUG] 选择护甲等级: {level}")
+                    return level
+                else:
+                    print(f"输入无效，请选择 {levels[0]}-{levels[-1]} 之间的等级。")
+            except ValueError:
+                print("请输入数字。")
+    
     def simulate_shooting(self):
-        """模拟射击直到护甲被击毁"""
         print("=" * 50)
         print(" ")
         print("=" * 50)
-        
-        # 选择武器、枪管、弹药、护甲
         weapon = self.select_weapon()
         barrel = self.select_barrel(weapon)
-        
-        # 显示武器原始口径用于选择弹药
         display_caliber = weapon.get('original_caliber', weapon['caliber'])
         ammo = self.select_ammo(display_caliber)
-        
         if not ammo:
             print("无法继续计算，请重新开始。")
-            return True  # 返回True表示可以开始新一轮计算
-        
+            return True
         armor = self.select_armor()
-        
-        # 获取用户设置的当前上限和当前耐久，如果没有设置则使用初始值
         current_max_durability = armor.get('current_max_durability', armor['durability'])
         current_durability = armor.get('current_durability', armor['durability'])
-        
-        # 显示初始信息
         print("\n" + "=" * 50)
         print("模拟开始")
         print("=" * 50)
-        # 显示武器原始口径
         weapon_display_caliber = weapon.get('original_caliber', weapon['caliber'])
         print(f"武器: {weapon['name']} ({weapon_display_caliber})")
         print(f"枪管: {barrel['name']}")
-        # 显示弹药原始口径 - 确保有正确的值
         ammo_display_caliber = ammo.get('original_caliber', ammo['caliber'])
         if ammo_display_caliber is None:
             ammo_display_caliber = ammo['caliber']
@@ -749,22 +638,12 @@ class ArmorPenetrationCalculator:
             durability_ratio = (current_durability / current_max_durability).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
             print(f"当前耐久比例: {durability_ratio:.2%}")
         print("=" * 50)
-        
-        # 模拟射击
         round_num = 1
-        initial_max_durability = current_max_durability
-        
-        # 记录击穿状态
-        first_probable_hit = None  # 第一次概率击穿的轮次
-        first_guaranteed_hit = None  # 第一次必定击穿的轮次
-        simulation_history = []  # 记录详细计算过程
-        
-        # 先进行完整模拟，记录所有结果
+        first_probable_hit = None
+        first_guaranteed_hit = None
+        simulation_history = []
         while current_durability > Decimal('0'):
-            # 计算本轮伤害
             result = self.calculate_damage(weapon, barrel, ammo, armor, current_durability, current_max_durability)
-            
-            # 记录结果
             simulation_history.append({
                 'round': round_num,
                 'penetration_type': result['penetration_type'],
@@ -775,42 +654,26 @@ class ArmorPenetrationCalculator:
                 'current_durability_before': current_durability,
                 'current_max_durability': current_max_durability
             })
-            
-            # 检查是否是第一次概率击穿
             if first_probable_hit is None and result['penetration_type'] == "概率击穿护甲":
                 first_probable_hit = round_num
-            
-            # 检查是否是第一次必定击穿
             if first_guaranteed_hit is None and result['penetration_type'] == "必定击穿护甲":
                 first_guaranteed_hit = round_num
-            
-            # 更新当前耐久
             current_durability = result['remaining_durability']
-            
-            # 检查护甲是否被击毁
             if result['is_destroyed']:
                 break
-            
             round_num += 1
-        
-        # 输出关键指标
         print("\n" + "=" * 50)
         print("击穿分析结果")
         print("=" * 50)
-        
         if first_probable_hit is not None:
             print(f"概率击穿所需命中数：{first_probable_hit}")
         else:
             print("概率击穿所需命中数：未出现概率击穿")
-        
         if first_guaranteed_hit is not None:
             print(f"稳定击穿所需命中数：{first_guaranteed_hit}")
         else:
             print("稳定击穿所需命中数：未出现稳定击穿")
-        
         print(f"护甲在第{round_num}轮被彻底击毁！")
-        
-        # 询问是否显示详细计算过程
         print("\n" + "=" * 50)
         while True:
             show_details = input("是否显示详细计算过程？(Y/N): ").strip().upper()
@@ -818,56 +681,36 @@ class ArmorPenetrationCalculator:
                 print("\n" + "=" * 50)
                 print("详细计算过程")
                 print("=" * 50)
-                
                 for i, result in enumerate(simulation_history):
                     if i < len(simulation_history) - 1:
                         print(f"\n第{result['round']}轮射击")
                         print(result['penetration_type'])
-                        
-                        # 只有击穿时才输出伤害
                         if result['can_penetrate'] and result['damage'] > Decimal('0'):
                             print(f"造成{result['damage']:.2f}伤害")
-                            # ===== 新增：显示穿手伤害 =====
                             through_damage = result['damage'] * Decimal('0.88')
                             print(f"穿手伤害：{through_damage:.2f}")
-                        
-                        # 输出剩余护甲耐久（输出保留一位小数）
                         print(f"剩余护甲耐久：{result['remaining_durability']:.1f}/{result['current_max_durability']:.1f}")
-                        
-                        # 显示耐久比例
                         if result['current_max_durability'] > Decimal('0'):
                             durability_ratio = (result['remaining_durability'] / result['current_max_durability']).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
                             print(f"耐久比例：{durability_ratio:.2%}")
                     else:
-                        # 最后一轮，护甲被击毁
                         print(f"\n第{result['round']}轮射击")
                         print(result['penetration_type'])
-                        
                         if result['can_penetrate'] and result['damage'] > Decimal('0'):
                             print(f"造成{result['damage']:.2f}伤害")
-                            # ===== 新增：显示穿手伤害 =====
                             through_damage = result['damage'] * Decimal('0.88')
                             print(f"穿手伤害：{through_damage:.2f}")
-                        
                         print(f"剩余护甲耐久：{result['remaining_durability']:.1f}/{result['current_max_durability']:.1f}")
-                        
-                        # 显示耐久比例
                         if result['current_max_durability'] > Decimal('0'):
                             durability_ratio = (result['remaining_durability'] / result['current_max_durability']).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
                             print(f"耐久比例：{durability_ratio:.2%}")
-                        
                         print("护甲被彻底击毁！")
-                
                 break
             elif show_details == 'N':
                 break
             else:
                 print("输入无效，请输入 Y 或 N。")
-        
-        # 恢复护甲原始耐久
         armor['current_durability'] = armor['durability']
-        
-        # 询问是否开始新一轮计算
         print("\n" + "=" * 50)
         while True:
             answer = input("是否开始新一轮计算？(Y/N): ").strip().upper()
@@ -875,14 +718,66 @@ class ArmorPenetrationCalculator:
                 print("\n" + "=" * 50)
                 print("开始新一轮计算")
                 print("=" * 50)
-                return True  # 表示继续新一轮计算
+                return True
             elif answer == 'N':
-                return False  # 表示退出程序
+                return False
             else:
                 print("输入无效，请输入 Y 或 N。")
     
+    def damage_calculation_simulation(self):
+        print("\n" + "=" * 50)
+        print("伤害计算模拟")
+        print("=" * 50)
+        while True:
+            weapon = self.select_weapon()
+            barrel = self.select_barrel(weapon)
+            display_caliber = weapon.get('original_caliber', weapon['caliber'])
+            ammo = self.select_ammo(display_caliber)
+            if not ammo:
+                print("弹药选择失败，返回主菜单。")
+                return
+            armor_level = self.select_armor_level()
+            total_damage = ammo['damage'] + barrel['firing_power']
+            over_range_total = total_damage * Decimal('0.7')
+            k_value = ammo['bullet_penetration'] - Decimal(str(armor_level)) * Decimal('10')
+            penetration_percentage = self.calculate_penetration_percentage(k_value)
+            armor_penetration_damage = (total_damage * penetration_percentage).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+            through_hand_penetration = (armor_penetration_damage * Decimal('0.88')).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+            over_range_penetration = (armor_penetration_damage * Decimal('0.7')).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+            if self.debug:
+                print("\n[DEBUG] 伤害计算详细信息:")
+                print(f"  弹药伤害: {ammo['damage']}")
+                print(f"  枪管威力: {barrel['firing_power']}")
+                print(f"  总伤害: {total_damage}")
+                print(f"  护甲等级: {armor_level}")
+                print(f"  子弹穿透值: {ammo['bullet_penetration']}")
+                print(f"  K值: {k_value}")
+                print(f"  穿透百分比: {penetration_percentage:.4f}")
+                print(f"  穿甲伤害(未取整): {total_damage * penetration_percentage}")
+                print(f"  最终穿甲伤害: {armor_penetration_damage}")
+            print("\n" + "=" * 50)
+            print("计算结果")
+            print("=" * 50)
+            print(f"总伤害：{total_damage:.2f}")
+            print(f"超射程伤害：{over_range_total:.2f}")
+            print(f"穿甲伤害：{armor_penetration_damage:.2f}")
+            print(f"穿手穿甲伤害：{through_hand_penetration:.2f}")
+            print(f"超射程穿甲伤害：{over_range_penetration:.2f}")
+            print("=" * 50)
+            while True:
+                answer = input("\n是否进行新一轮伤害计算？(Y/N): ").strip().upper()
+                if answer == 'Y':
+                    print("\n" + "=" * 50)
+                    print("开始新一轮伤害计算")
+                    print("=" * 50)
+                    break
+                elif answer == 'N':
+                    print("返回主菜单。")
+                    return
+                else:
+                    print("输入无效，请输入 Y 或 N。")
+    
     def run(self):
-        """运行主程序"""
         print("=" * 50)
         print("护甲系统模拟器")
         print("=" * 50)
@@ -894,32 +789,46 @@ class ArmorPenetrationCalculator:
         print("耐久比例计算：当前耐久/当前上限")
         print("如未设置自定义耐久，则使用初始耐久上限")
         print("=" * 50)
-        
-        # 直接开始模拟射击
-        continue_simulation = True
-        while continue_simulation:
-            continue_simulation = self.simulate_shooting()
-            # 如果simulate_shooting返回False，表示用户选择N，退出程序
+        while True:
+            print("\n请选择功能：")
+            print("1. 护甲损毁计算模拟")
+            print("2. 伤害计算模拟")
+            print("0. 退出")
+            choice = input("请输入选项：").strip()
+            if choice == '1':
+                while True:
+                    cont = self.simulate_shooting()
+                    if not cont:
+                        break
+            elif choice == '2':
+                self.damage_calculation_simulation()
+            elif choice == '0':
+                print("退出程序。")
+                break
+            else:
+                print("输入无效，请重新选择。")
 
 def main():
-    # 检查文件是否存在
-    required_files = ['穿透数据整理结果.xlsx', '武器数据.xlsx', '子弹数据.xlsx', '护甲信息.xlsx']
-    missing_files = [f for f in required_files if not os.path.exists(f)]
-    
-    if missing_files:
-        print("警告: 以下文件不存在:")
-        for f in missing_files:
-            print(f"  - {f}")
-        print("请确保所有数据文件在当前目录下。")
-        return
-    
-    # 创建并运行计算器
-    calculator = ArmorPenetrationCalculator()
-    calculator.run()
+    try:
+        required_files = ['穿透数据整理结果.xlsx', '武器数据.xlsx', '子弹数据.xlsx', '护甲信息.xlsx']
+        missing_files = [f for f in required_files if not os.path.exists(f)]
+        if missing_files:
+            print("警告: 以下文件不存在:")
+            for f in missing_files:
+                print(f"  - {f}")
+            print("请确保所有数据文件在当前目录下。")
+            input("按 Enter 键退出...")
+            return
+        calculator = ArmorPenetrationCalculator()
+        calculator.run()
+    except Exception as e:
+        print("\n" + "=" * 50)
+        print("程序运行出错！错误信息如下：")
+        print("=" * 50)
+        import traceback
+        traceback.print_exc()
+        print("=" * 50)
+        input("按 Enter 键退出...")
 
 if __name__ == "__main__":
     main()
-
-
-
-
