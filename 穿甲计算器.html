@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>暗区突围 · 穿甲伤害计算器</title>
+<meta name="author" content="繁星攻略组">
+<meta name="description" content="暗区突围武器穿甲伤害计算器 · 数据基于游戏文件静态解析 · CC BY-NC-SA 4.0">
+<meta name="license" content="CC BY-NC-SA 4.0">
+<meta name="copyright" content="© 2026 繁星攻略组">
+<meta property="og:title" content="暗区突围 · 穿甲伤害计算器">
+<meta property="og:description" content="武器 → 枪管 → 子弹 → 护甲，含穿透距离衰减 · 繁星攻略组">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication",
+"name":"暗区突围 · 穿甲伤害计算器",
+"author":{"@type":"Organization","name":"繁星攻略组",
+"url":"https://github.com/StarryNightSquad/Arena-Breakout-Infinity"},
+"license":"https://creativecommons.org/licenses/by-nc-sa/4.0/",
+"isAccessibleForFree":true,"applicationCategory":"GameApplication",
+"inLanguage":"zh-CN"}
+</script>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --line:#e5e7eb; --txt:#1f2328; --dim:#6b7280;
+  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --purple:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 20px 60px}
+h1{font-size:22px;margin:0 0 20px;letter-spacing:.3px;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ver{display:inline-block;margin-left:9px;font-size:11px;font-weight:500;color:#b45309;
+  background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:0 8px;letter-spacing:.5px;
+  font-variant-numeric:tabular-nums;vertical-align:1px}
+
+.credit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--dim);letter-spacing:.4px;margin-bottom:12px}
+.credit .brand{color:var(--blue);font-weight:600;letter-spacing:.6px}
+.upd{font:12.5px/1.6 inherit;color:var(--dim);cursor:pointer;border:1px solid var(--line);
+  background:#fff;border-radius:5px;padding:2px 9px;white-space:nowrap}
+.upd:hover{color:#1d4ed8;border-color:#bfdbfe;background:#eff6ff}
+.upd:disabled{opacity:.6;cursor:default}
+.updmsg{font-size:12px;color:var(--dim)}
+.updmsg.ok{color:var(--green)}
+.updmsg.new{color:#b45309;font-weight:600}
+.updmsg.err{color:var(--red)}
+.menu{position:relative;margin-left:auto}
+.contact{font:12.5px/1.6 inherit;color:#1d4ed8;cursor:pointer;border:1px solid #bfdbfe;
+  background:#eff6ff;border-radius:5px;padding:2px 9px;white-space:nowrap}
+.contact:hover,.contact.on{background:#dbeafe}
+.contact i{font-style:normal;font-size:10px;opacity:.7;margin-left:2px}
+.menu-panel{display:none;position:absolute;right:0;top:calc(100% + 7px);min-width:242px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.11);padding:6px;z-index:30;text-align:left;letter-spacing:0}
+.menu-panel.open{display:block}
+.menu-hint{font-size:11px;color:var(--dim);padding:5px 10px 7px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.menu-note{margin-top:8px;padding:8px 10px 2px;border-top:1px solid var(--line);
+  font-size:11px;line-height:1.7;color:var(--dim)}
+.credit .lic{color:var(--blue);text-decoration:none;border-bottom:1px dotted #bfdbfe}
+.credit .lic:hover{border-bottom-style:solid}
+.credit .sep{color:#d1d5db}
+.mi{display:block;padding:7px 10px;border-radius:7px;text-decoration:none;color:var(--txt)}
+.mi:hover{background:#eff6ff}
+.mi b{display:block;font-size:13px;font-weight:500;color:var(--blue);line-height:1.5}
+.mi span{display:block;font-size:11.5px;color:var(--dim);line-height:1.5}
+.foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:12px;line-height:1.9;color:var(--dim)}
+.foot b{color:var(--txt)}
+.foot a{color:var(--blue);text-decoration:none}
+.foot a:hover{text-decoration:underline}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card h2::before{content:"";width:3px;height:14px;background:var(--blue);border-radius:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+select,input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;font-size:13px;color:var(--txt);font-family:inherit}
+select:focus,input:focus{outline:2px solid #bfdbfe;border-color:var(--blue)}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:720px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.m{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.m .k{font-size:12px;color:var(--dim);margin-bottom:4px}
+.m .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.m .n{font-size:11px;color:var(--dim);margin-top:3px}
+.m.hl{background:#eff6ff;border-color:#bfdbfe}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid #f0f1f3;white-space:nowrap}
+th{color:var(--dim);font-weight:500;font-size:12px;background:#fafbfc}
+th:first-child,td:first-child{text-align:left}
+
+#table{table-layout:fixed}
+#table th,#table td{text-align:center;overflow:hidden;text-overflow:ellipsis}
+#table th:first-child,#table td:first-child{text-align:left}
+tbody tr:hover{background:#fafbfc}
+tr.last-intact td{background:#fffbeb}
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600}
+.t-b{background:#fee2e2;color:var(--red)}
+.t-n{background:#e5e7eb;color:#4b5563}
+.t-p{background:#dcfce7;color:var(--green)}
+.distrow{margin-top:14px}
+.distrow label{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;font-size:12px}
+.distrow label b{font-size:15px;color:var(--txt);font-variant-numeric:tabular-nums}
+.distrow .dimtxt{color:var(--dim);font-size:12px;margin-left:auto}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:20px;
+  padding:0;border:none;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:#e5e7eb}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;
+  border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.28);cursor:pointer}
+input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:#e5e7eb}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+  background:var(--blue);border:2px solid #fff;cursor:pointer}
+.note{font-size:12.5px;color:var(--dim);line-height:1.8}
+.note b{color:var(--txt)}
+.formula{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+  font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.9;white-space:pre;overflow-x:auto}
+.scroll{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.legend{font-size:12px;color:var(--dim);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;
+  padding:9px 12px;font-size:12.5px;line-height:1.75;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="credit">
+    <span>本工具由<b class="brand">「繁星攻略组」</b>提供<span class="ver" id="verBadge">V1.2</span></span>
+    <span class="sep">·</span>
+    <a class="lic" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener license">CC BY-NC-SA 4.0</a> · 非商业转载须署名
+    <button class="upd" id="btnCheckUpd" type="button">检查更新</button>
+    <span class="updmsg" id="updMsg"></span>
+    <div class="menu">
+      <button class="contact" id="btnContact" type="button" aria-expanded="false" aria-controls="panelContact">联系我们 <i>▾</i></button>
+      <div class="menu-panel" id="panelContact">
+        <div class="menu-hint">数据纠错、机制讨论、授权转载，都欢迎</div>
+        <a class="mi" href="https://www.xiaoheihe.cn/app/user/profile/80727291" target="_blank" rel="noopener"><b>小黑盒</b><span>繁星攻略组主页</span></a>
+        <a class="mi" id="miRepo" href="https://github.com/" target="_blank" rel="noopener"><b>GitHub</b><span>仓库 / 问题反馈</span></a>
+        <div class="menu-hint" style="margin-top:6px">许可协议</div>
+        <a class="mi" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener license"><b>CC BY-NC-SA 4.0</b><span>署名 · 非商业性使用 · 相同方式共享</span></a>
+        <div class="menu-note">转载或修改后发布，请保留「繁星攻略组」署名与本协议。<br>禁止用于商业用途（含付费内容、带货、引流变现）。</div>
+      </div>
+    </div>
+  </div>
+  <h1>暗区突围 · 穿甲伤害计算器</h1>
+
+  <div class="card">
+    <h2>参数</h2>
+    <div class="grid">
+      <div><label>武器</label><select id="weapon"></select></div>
+      <div><label>枪管</label><select id="barrel"></select></div>
+      <div><label>子弹（随武器口径过滤）</label><select id="bullet"></select></div>
+    </div>
+    <div class="grid" style="margin-top:12px">
+      <div><label>护甲</label><select id="armor"></select></div>
+      <div><label>当前耐久</label><input id="durCur" type="number" value="90" min="0" step="1"></div>
+      <div><label>耐久上限</label><input id="durMax" type="number" value="90" min="1" step="1"></div>
+    </div>
+    <div class="note" style="margin-top:10px">
+      先选武器，枪管取该枪可换的枪管（固定枪管的枪只有一项），子弹只显示该枪口径下的弹种。
+      <b>击发威力 = 武器自身 + 枪管</b>，两段自动合计，不再手填。护甲耐久按<b>当前 / 上限</b>取比例，换护甲会自动重置为该护甲满耐。
+    </div>
+    <div class="distrow">
+      <label for="dist">射击距离 <b id="distV">0</b> m<span class="dimtxt" id="distInfo"></span></label>
+      <input id="dist" type="range" min="0" max="200" step="1" value="0">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>单发结算</h2>
+    <div class="metrics" id="metrics"></div>
+    <div class="warn">
+      耐久只影响<b>穿不穿</b>：抗穿随耐久按双曲衰减，穿透差变大、概率上升。<br>
+      耐久<b>不影响穿了之后打多少</b>：伤害系数用标称抗穿，固定不变。<b>把甲打碎的那一发照样减伤</b>，只有耐久归零<b>之后再受击</b>才变成无减伤。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>逐发推演（耐久递减，打到碎为止）</h2>
+    <div class="scroll">
+      <table id="table">
+        <thead><tr>
+          <th>命中数</th><th>当前耐久</th><th>耐久%</th>
+          <th>穿甲伤害</th><th>穿手穿甲伤害</th><th>结果</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--red)"></i>击穿</span>
+      <span><i class="dot" style="background:#9ca3af"></i>未击穿（钝伤）</span>
+      <span>同一距离下击穿伤害固定；拖动距离会变</span>
+      <span><b>碎甲那一发仍按护甲减伤</b>，只有耐久归零<span style="color:#b45309">之后</span>再受击才无减伤</span>
+      <span>本表按头 / 胸（毁甲 1.0）推演；打腹部与四肢毁甲 ×0.3</span>
+    </div>
+  </div>
+
+  
+
+  <div class="card">
+    <h2>说明</h2>
+    <div class="note">
+      <p><b>为什么伤害不随耐久变</b>：耐久衰减的是「抗穿」，只作用于判定；结算代入的是护甲标称抗穿。所以同一护甲被同一子弹打，只要还没碎，伤害数字就是同一个。</p>
+      <p><b>耐久归零</b>才是分水岭：护甲失效，不再减伤，伤害直接按满伤计算。</p>
+      <p><b>穿体概率</b>与击穿护甲概率是两回事：前者是子弹穿过人体继续飞行的概率。</p>
+      <p><b>距离削穿透</b>：x = 距离 ÷ 枪管射程，穿透按曲线衰减，穿甲概率跟着掉。</p>
+      <p><b>钝伤随距离降低</b>（已实测）：远距离打不穿时吃的钝伤更少。</p>
+      <p><b>穿甲伤害也随距离降低</b>，与钝伤共用同一条曲线（源码顶部 <code>DMG_DECAY</code> 可关掉伤害衰减）。</p>
+      <p><b>甲伤不随距离变化</b>（已确认）：<code>GetArmorDamageScale</code> 只读护甲对象上的伤害系数并夹到 ≥ 0，
+        链路里没有距离项。同一颗子弹贴脸打和 50 m 外打，掉的耐久完全一样。</p>
+      <p><b>毁甲系数按部位分两档</b>：<b>头部与胸部 1.0</b>，<b>腹部与四肢一律 0.3</b>。本表的掉耐久按 1.0 计算；打腹部或四肢能多撑约 3.3 倍。</p>
+      <p><b>伤害扩散倍率（存疑）</b>：四肢扩散倍率 0.8 倍，腹部扩散倍率 1.2 倍。</p>
+      <p><b>满耐久打不进</b>：抗穿随耐久衰减，满耐久时判定用抗穿 = 标称抗穿；
+        源码里另有 <code>t &gt; 0.9999 → 概率 0</code> 的锁，所以<b>首发即使差几点也必定不穿</b>，掉 1 点耐久才开始有概率。</p>
+      <p><b>5–6 级胸甲</b>为二值判定：Kp ≥ 0 必穿，Kp &lt; 0 完全不穿，没有中间概率；<b>头盔不分等级，一律走概率判定</b>。</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>繁星攻略组 · 暗区突围穿甲计算器 V1.2</b> · 单文件离线可用，不联网也能算（仅「检查更新」需要网络）<br>
+    © 2026 繁星攻略组 · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener license">CC BY-NC-SA 4.0</a> · 转载请保留署名与仓库链接
+  </div>
+</div>
+
+<script>
+const DATA = {"b":[[".338 Lapua Mag","UPZ",42,110,29.5,1.0,0.082,0.88],[".338 Lapua Mag","FMJ",54,94,41.0,1.0,0.096,0.88],[".338 Lapua Mag","AP",64,90,55.0,1.0,0.1,0.88],[".44 Mag","LFNP",23,98,8.0,0.4,0.055,0.88],[".44 Mag","SJHP",35,76,13.0,1.0,0.071,0.88],[".44 Mag","JSP",42,67,18.0,1.0,0.08,0.88],[".45 ACP","HS",11,58,2.9,0.2,0.051,0.88],[".45 ACP","FMJ",19,54,5.6,0.2,0.055,0.88],[".45 ACP","AP",32,48,11.0,1.0,0.062,0.88],[".45 ACP","ARM",35,51,9.8,1.0,0.058,0.88],[".45 ACP","APWC",42,48,17.0,1.0,0.066,0.88],["12 Gauge","5型鹿弹",1,36,1.0,1.0,0.03,0.88],["12 Gauge","RIP独头弹",3,274,14.8,1.0,0.03,0.88],["12 Gauge","8型鹿弹",4,43,1.0,1.0,0.021,0.88],["12 Gauge","灰熊独头弹",11,187,7.68,0.2,0.044,0.88],["12 Gauge","7型鹿弹",12,37,1.0,0.0,0.03,0.88],["12 Gauge","Led独头弹",18,178,9.35,0.2,0.05,0.88],["12 Gauge","双头弹",19,86,3.05,0.2,0.05,0.88],["12 Gauge","GT独头弹",27,201,14.82,0.4,0.042,0.88],["12 Gauge","龙息弹",29,34,10.0,1.0,0.021,0.88],["12 Gauge","飞镖鹿弹",33,25,2.0,1.0,0.036,0.88],["12 Gauge","穿甲独头弹",35,163,15.35,1.0,0.052,0.88],["12.7x99mm","M2",61,221,34.16,1.0,0.05,0.88],["5.45x39mm","PRS",11,59,4.95,0.2,0.047,0.88],["5.45x39mm","新手",11,59,4.95,0.2,0.047,0.88],["5.45x39mm","HP",15,73,5.2,0.2,0.032,0.88],["5.45x39mm","PS",25,53,7.54,0.4,0.053,0.88],["5.45x39mm","PP",31,44,12.8,1.0,0.064,0.88],["5.45x39mm","7N22M",34,46,14.1,1.0,0.058,0.88],["5.45x39mm","7N10M",35,48,10.6,1.0,0.058,0.88],["5.45x39mm","BP",41,45,16.81,1.0,0.062,0.88],["5.45x39mm","BS",52,40,26.01,1.0,0.057,0.88],["5.56x45mm","M193",12,52,7.13,0.2,0.05,0.88],["5.56x45mm","HP狩猎弹",14,69,5.06,0.2,0.032,0.88],["5.56x45mm","FMJ狩猎弹",21,53,7.13,0.4,0.053,0.88],["5.56x45mm","M855",34,50,13.3,1.0,0.056,0.88],["5.56x45mm","M855A1",40,44,17.1,1.0,0.06,0.88],["5.56x45mm","AP",41,48,17.5,1.0,0.06,0.88],["5.56x45mm","M855A2",41,48,20.4,1.0,0.06,0.88],["5.56x45mm","M995",52,41,26.52,1.0,0.056,0.88],["5.7x28mm","R37.F",5,78,3.9,1.0,0.026,0.88],["5.7x28mm","R37.X",15,71,6.28,0.2,0.032,0.88],["5.7x28mm","SS197SR",22,62,9.38,0.4,0.045,0.88],["5.7x28mm","L191",32,55,12.5,1.0,0.051,0.88],["5.7x28mm","SS190",42,47,18.6,1.0,0.06,0.88],["5.7x28mm","SS198",53,43,22.8,1.0,0.056,0.88],["5.8x42mm","DBP87",34,52,12.5,1.0,0.054,0.88],["5.8x42mm","DVP88",44,47,19.0,1.0,0.06,0.88],["5.8x42mm","DVC12",53,44,29.0,1.0,0.054,0.88],["7.62x25mm","LRN",9,64,2.1,1.0,0.04,0.88],["7.62x25mm","AKBS",13,58,4.5,0.2,0.05,0.88],["7.62x25mm","PT",19,55,5.9,0.2,0.053,0.88],["7.62x25mm","Pst",22,51,10.3,0.4,0.057,0.88],["7.62x25mm","PS",31,47,12.1,1.0,0.062,0.88],["7.62x39mm","LP",13,60,3.2,0.2,0.053,0.88],["7.62x39mm","HP",16,78,7.0,0.2,0.032,0.88],["7.62x39mm","US",27,55,9.18,0.4,0.058,0.88],["7.62x39mm","T45M",31,60,13.2,1.0,0.053,0.88],["7.62x39mm","PS",33,55,14.4,1.0,0.058,0.88],["7.62x39mm","BP",45,55,23.4,1.0,0.058,0.88],["7.62x39mm","AP",54,45,32.4,1.0,0.056,0.88],["7.62x51mm","UN",16,79,7.5,1.0,0.034,0.88],["7.62x51mm","BPZ",32,67,13.5,1.0,0.049,0.88],["7.62x51mm","M80",42,63,21.0,1.0,0.051,0.88],["7.62x51mm","M62",53,56,28.0,1.0,0.047,0.88],["7.62x51mm","M61",68,50,37.4,1.0,0.058,0.88],["7.62x54mm","T46M",33,77,16.2,1.0,0.078,0.88],["7.62x54mm","LPS",42,75,27.0,1.0,0.08,0.88],["7.62x54mm","7BT1",54,65,37.8,1.0,0.092,0.88],["7.62x54mm","SNB",63,64,43.2,1.0,0.1,0.88],["7.62x54mm","新手",63,67,43.2,1.0,0.1,0.88],["7.62x54mm","7N37",71,50,54.0,1.0,0.13,0.88],["9x19mm","达姆弹",4,74,1.2,1.0,0.028,0.88],["9x19mm","PSO",15,54,5.8,0.2,0.053,0.88],["9x19mm","Pst",20,50,7.0,0.4,0.057,0.88],["9x19mm","AP6.3",30,46,12.0,1.0,0.062,0.88],["9x19mm","M39",34,49,13.3,1.0,0.06,0.88],["9x19mm","7N30",35,47,12.0,1.0,0.062,0.88],["9x19mm","7N31",40,44,19.2,1.0,0.065,0.88],["9x19mm","M882",42,47,18.1,1.0,0.06,0.88],["9x39mm","SP5",33,64,10.6,1.0,0.049,0.88],["9x39mm","SP6",41,53,18.0,1.0,0.06,0.88],["9x39mm","PAB",42,55,18.0,1.0,0.05,0.88],["9x39mm","7N9",47,56,12.6,1.0,0.05,0.88],["9x39mm","7N12",50,50,21.73,1.0,0.054,0.88]],"a":[["52K飞行头盔",1,10,20.0,0.32,"芳纶","头盔"],["凯尔斯消防头盔",1,10,10.0,0.3,"芳纶","头盔"],["坦克兵防护帽",1,10,20.0,0.3,"芳纶","头盔"],["工业防护盔",1,10,20.0,0.3,"芳纶","头盔"],["摩托车头盔",1,10,15.0,0.3,"芳纶","头盔"],["轻型安全头盔",1,10,15.0,0.3,"芳纶","头盔"],["旧安保防弹衣",1,10,25.0,0.3,"芳纶","护甲"],["老式工兵防弹胸甲",1,10,25.0,0.6,"装甲钢","护甲"],["老式防弹马甲",1,10,20.0,0.3,"芳纶","护甲"],["轻型防弹衣",1,10,25.0,0.3,"芳纶","护甲"],["PAS标准头盔",2,20,25.0,0.3,"芳纶","头盔"],["YHR头盔",2,20,20.0,0.35,"聚乙烯","头盔"],["军用摩托头盔",2,20,17.0,0.3,"芳纶","头盔"],["安保头盔",2,20,20.0,0.35,"聚乙烯","头盔"],["安保防暴头盔",2,20,22.0,0.35,"聚乙烯","头盔"],["老式军用头盔",2,20,20.0,0.6,"装甲钢","头盔"],["老式褐色钢盔",2,20,20.0,0.6,"装甲钢","头盔"],["老式钢盔",2,20,25.0,0.6,"装甲钢","头盔"],["飞行员头盔",2,20,20.0,0.35,"聚乙烯","头盔"],["220防弹衣",2,20,30.0,0.3,"芳纶","护甲"],["KN轻型防弹衣",2,20,35.0,0.3,"芳纶","护甲"],["KN隐蔽式防弹衣",2,20,27.0,0.3,"芳纶","护甲"],["M1955战斗马甲",2,20,20.0,0.3,"芳纶","护甲"],["安保防弹衣",2,20,25.0,0.3,"芳纶","护甲"],["民兵胸挂甲",2,20,25.0,0.35,"聚乙烯","护甲"],["老式步兵防弹背心",2,20,30.0,0.45,"铝","护甲"],["老式空军防弹衣",2,20,35.0,0.6,"装甲钢","护甲"],["DK5通用防弹面罩",2,20,40.0,0.7,"玻璃","面罩"],["6B47头盔",3,30,35.0,0.3,"芳纶","头盔"],["6B4型头盔",3,30,30.0,0.3,"芳纶","头盔"],["6B4型头盔小队涂装",3,30,30.0,0.3,"芳纶","头盔"],["6B5型 头盔",3,30,35.0,0.35,"聚乙烯","头盔"],["F70战术头盔",3,30,25.0,0.55,"复合材料","头盔"],["PAS2型头盔",3,30,28.0,0.6,"装甲钢","头盔"],["SH12军用头盔",3,30,30.0,0.6,"装甲钢","头盔"],["Twitch联动·F70战术头盔",3,30,25.0,0.55,"复合材料","头盔"],["旧式黑色钢盔",3,30,25.0,0.6,"装甲钢","头盔"],["老式航空头盔",3,30,30.0,0.6,"装甲钢","头盔"],["6B02胸挂甲",3,30,35.0,0.4,"钛","护甲"],["6B5弹挂甲",3,30,35.0,0.65,"陶瓷","护甲"],["926安保胸挂甲",3,30,25.0,0.3,"芳纶","护甲"],["H-LC轻型防弹衣",3,30,55.0,0.55,"复合材料","护甲"],["H-Tac特勤防弹衣",3,30,35.0,0.35,"聚乙烯","护甲"],["KN制式防弹衣",3,30,35.0,0.3,"芳纶","护甲"],["KN突击防弹衣",3,30,50.0,0.4,"钛","护甲"],["KN防卫防弹衣",3,30,55.0,0.4,"钛","护甲"],["PCA350型防弹衣",3,30,50.0,0.45,"铝","护甲"],["Twitch联动·标准特勤防弹衣",3,30,45.0,0.3,"芳纶","护甲"],["可变防弹护甲",3,30,55.0,0.65,"陶瓷","护甲"],["哨兵3型胸挂甲",3,30,30.0,0.35,"聚乙烯","护甲"],["标准特勤防弹衣",3,30,45.0,0.3,"芳纶","护甲"],["BN30防弹腿甲",3,30,18.0,0.35,"芳纶","腿甲"],["SA101防弹腿甲",3,30,15.0,0.3,"芳纶","腿甲"],["DK6安保防弹面罩",3,30,45.0,0.7,"玻璃","面罩"],["SH通用防弹面罩",3,30,30.0,0.7,"玻璃","面罩"],["格勒加固型面罩",3,30,50.0,0.7,"玻璃","面罩"],["56K型直升机头盔",4,40,50.0,0.3,"芳纶","头盔"],["F80战术头盔",4,40,35.0,0.51,"铝","头盔"],["IND200头盔",4,40,40.0,0.58,"复合材料","头盔"],["IND战术头盔",4,40,35.0,0.64,"复合材料","头盔"],["IND战术头盔雪山版",4,40,35.0,0.64,"复合材料","头盔"],["KSS2型头盔",4,40,45.0,0.64,"复合材料","头盔"],["KSS战术头盔",4,40,40.0,0.52,"铝","头盔"],["SH18军用头盔",4,40,45.0,0.47,"钛","头盔"],["SH40军用头盔",4,40,50.0,0.7,"装甲钢","头盔"],["坦克乘员头盔",4,40,50.0,0.6,"装甲钢","头盔"],["6B13防弹衣",4,40,65.0,0.55,"复合材料","护甲"],["6B23防弹衣",4,40,70.0,0.6,"装甲钢","护甲"],["6BL3防弹衣",4,40,70.0,0.55,"复合材料","护甲"],["AL制式弹挂甲",4,40,45.0,0.45,"铝","护甲"],["AR500复合防弹衣（CG用）",4,40,45.0,0.65,"陶瓷","护甲"],["H-LC复合防弹衣",4,40,60.0,0.55,"复合材料","护甲"],["H-Tac 500弹挂甲",4,40,45.0,0.4,"钛","护甲"],["IND401型防弹衣",4,40,55.0,0.45,"铝","护甲"],["PM-R型弹挂甲",4,40,60.0,0.55,"复合材料","护甲"],["SEK堡垒防弹衣",4,40,50.0,0.45,"铝","护甲"],["TM1胸挂甲",4,40,40.0,0.4,"钛","护甲"],["TM2胸挂甲",4,40,45.0,0.45,"铝","护甲"],["哨兵305胸挂甲",4,40,50.0,0.55,"复合材料","护甲"],["哨兵308突击胸挂甲",4,40,60.0,0.6,"装甲钢","护甲"],["斯巴达B型防弹衣",4,40,50.0,0.3,"芳纶","护甲"],["游骑兵防弹衣",4,40,40.0,0.65,"陶瓷","护甲"],["AVS-T弹挂腿甲",4,40,15.0,0.3,"芳纶","腿甲"],["PM-V型弹挂腿甲",4,40,15.0,0.35,"芳纶","腿甲"],["AN95军用防弹面罩",4,40,50.0,0.73,"玻璃","面罩"],["DK7高级防弹面罩",4,40,50.0,0.73,"玻璃","面罩"],["DK8军用防弹面罩",4,40,45.0,0.82,"玻璃","面罩"],["L2Fshield",4,40,45.0,0.7,"玻璃","面罩"],["SH60面罩",4,40,35.0,0.64,"复合材料","面罩"],["03重型战术头盔",5,50,45.0,0.96,"复合材料","头盔"],["AN95重型防爆头盔",5,50,55.0,0.595,"钛","头盔"],["FA突击战术头盔",5,50,50.0,0.805,"复合材料","头盔"],["RSE重型防爆头盔",5,50,60.0,0.6,"装甲钢","头盔"],["RSP重装战术头盔",5,50,55.0,0.885,"复合材料","头盔"],["SH50军用头盔",5,50,60.0,0.965,"装甲钢","头盔"],["SH60军用头盔",5,50,50.0,0.805,"复合材料","头盔"],["SH马斯卡2型头盔",5,50,65.0,1.045,"装甲钢","头盔"],["新式战术头盔",5,50,60.0,0.6,"装甲钢","头盔"],["秋日南瓜盔",5,50,45.0,0.64,"复合材料","头盔"],["秋日南瓜盔",5,1,1.0,0.64,"复合材料","头盔"],["926 复合防弹衣",5,50,70.0,0.55,"复合材料","护甲"],["AVS-T重装弹挂甲",5,50,100.0,0.55,"复合材料","护甲"],["BN30全护甲重装防弹衣",5,50,90.0,0.55,"复合材料","护甲"],["BT6重型防弹衣",5,50,90.0,0.4,"钛","护甲"],["BTS10重型弹挂甲",5,50,70.0,0.65,"陶瓷","护甲"],["H-LC战术防弹衣",5,50,70.0,0.55,"复合材料","护甲"],["H-Tac A8弹挂甲",5,50,60.0,0.55,"复合材料","护甲"],["H-Tac A9弹挂甲",5,50,65.0,0.65,"陶瓷","护甲"],["IMTV 武士全面防护防弹衣",5,50,90.0,0.45,"铝","护甲"],["IMTV 武士攻击型防弹衣",5,50,80.0,0.45,"铝","护甲"],["IMTV 武士标准防弹衣",5,50,70.0,0.45,"铝","护甲"],["KN野战指挥官防弹衣",5,50,80.0,0.65,"陶瓷","护甲"],["PM-G型重装弹挂甲",5,50,85.0,0.6,"装甲钢","护甲"],["PM-V型重装弹挂甲",5,50,100.0,0.45,"铝","护甲"],["SA101战术重装防弹衣",5,50,85.0,0.45,"铝","护甲"],["SEK重装弹挂甲",5,50,85.0,0.55,"复合材料","护甲"],["勇士重型胸挂甲",5,50,55.0,0.55,"复合材料","护甲"],["防卫者M3重装弹挂甲",5,50,75.0,0.55,"复合材料","护甲"],["防卫者M4重装型防弹衣",5,50,80.0,0.6,"装甲钢","护甲"],["防卫者M4重装型防弹衣士官涂装",5,50,80.0,0.6,"装甲钢","护甲"],["防卫者M4重装弹挂甲",5,50,100.0,0.6,"装甲钢","护甲"],["零界点复合防弹衣",5,50,100.0,0.65,"陶瓷","护甲"],["SH65军用面罩A型",5,50,55.0,1.23,"玻璃","面罩"],["SH马斯卡面罩",5,50,50.0,1.05,"装甲钢","面罩"],["6BNT型头盔",6,60,75.0,1.056,"装甲钢","头盔"],["AS200重型战术头盔",6,60,65.0,0.545,"聚乙烯","头盔"],["DOD9型防爆头盔",6,60,75.0,1.005,"复合材料","头盔"],["HG84特攻型头盔",6,60,70.0,0.9,"复合材料","头盔"],["IND50重型战术头盔",6,60,60.0,0.96,"复合材料","头盔"],["IND50重型战术头盔",6,60,60.0,0.64,"复合材料","头盔"],["IND70战术头盔",6,60,80.0,0.45,"聚乙烯","头盔"],["RST特种部队头盔",6,60,75.0,0.665,"铝","头盔"],["SH65军用头盔",6,60,65.0,1.05,"复合材料","头盔"],["6B45重装型防弹衣",6,60,120.0,0.66,"装甲钢","护甲"],["926复合2代防弹衣",6,60,105.0,0.55,"复合材料","护甲"],["AL战术弹挂甲",6,60,95.0,0.72,"陶瓷","护甲"],["AL指挥官弹挂甲",6,60,100.0,0.66,"装甲钢","护甲"],["AL突击弹挂甲",6,60,90.0,0.61,"复合材料","护甲"],["AVS重装弹挂甲",6,60,90.0,0.72,"陶瓷","护甲"],["BT101战术防弹衣",6,60,100.0,0.72,"陶瓷","护甲"],["BT201全护甲防弹衣",6,60,125.0,0.5,"铝","护甲"],["H-Tac A10弹挂甲",6,60,85.0,0.55,"复合材料","护甲"],["KN 复合防弹衣",6,60,110.0,0.72,"陶瓷","护甲"],["SEK野战重装弹挂甲",6,60,95.0,0.65,"陶瓷","护甲"],["斯巴达C重装弹挂甲",6,60,100.0,0.66,"装甲钢","护甲"],["治安官重型防弹衣",6,60,115.0,0.72,"陶瓷","护甲"],["6BNT防爆面罩",6,60,70.0,1.155,"装甲钢","面罩"],["RST特种部队面罩",6,60,70.0,0.62,"铝","面罩"],["SH65军用面罩B型",6,60,65.0,1.09,"复合材料","面罩"]],"w":[["BIZON","9x19mm","9x19mm"],["G17","9x19mm","9x19mm"],["G18C","9x19mm","9x19mm"],["M9A3","9x19mm","9x19mm"],["MP40","9x19mm","9x19mm"],["MP5","9x19mm","9x19mm"],["MP9","9x19mm","9x19mm"],["MPX","9x19mm","9x19mm"],["PCC-9","9x19mm","9x19mm"],["PP19","9x19mm","9x19mm"],["Suomi","9x19mm","9x19mm"],["T05","9x19mm","9x19mm"],["TS5","9x19mm","9x19mm"],["UZI","9x19mm","9x19mm"],["Vector9","9x19mm","9x19mm"],["CZ52","7.62x25mm","762x25mm"],["QC61","7.62x25mm","762x25mm"],["T54","7.62x25mm","762x25mm"],["T79","7.62x25mm","762x25mm"],["T85","7.62x25mm","762x25mm"],["AR57","5.7x28mm","57x28mm"],["Banshee","5.7x28mm","57x28mm"],["F57","5.7x28mm","57x28mm"],["P90","5.7x28mm","57x28mm"],["A545","5.45x39mm","545x39mm"],["AK12","5.45x39mm","545x39mm"],["AK74N","5.45x39mm","545x39mm"],["AKS74U","5.45x39mm","545x39mm"],["AN94","5.45x39mm","545x39mm"],["RPK16","5.45x39mm","545x39mm"],["AK102","5.56x45mm","556x45mm"],["AUG","5.56x45mm","556x45mm"],["F2000","5.56x45mm","556x45mm"],["FAMAS","5.56x45mm","556x45mm"],["H416","5.56x45mm","556x45mm"],["M16","5.56x45mm","556x45mm"],["M4A1","5.56x45mm","556x45mm"],["M96","5.56x45mm","556x45mm"],["MCX","5.56x45mm","556x45mm"],["MDR","5.56x45mm","556x45mm"],["Mini14","5.56x45mm","556x45mm"],["SCAR-L","5.56x45mm","556x45mm"],["SG550","5.56x45mm","556x45mm"],["T03","5.8x42mm","58x42mm"],["T191","5.8x42mm","58x42mm"],["T192","5.8x42mm","58x42mm"],["T88","5.8x42mm","58x42mm"],["T951","5.8x42mm","58x42mm"],["U191","5.8x42mm","58x42mm"],["AMB-17","9x39mm","9x39mm"],["Groza","9x39mm","9x39mm"],["VSS","9x39mm","9x39mm"],["ACE31","7.62x39mm","762x39mm"],["AEK","7.62x39mm","762x39mm"],["AK15SC","7.62x39mm","762x39mm"],["AKM","7.62x39mm","762x39mm"],["SA85M","7.62x39mm","762x39mm"],["SKS","7.62x39mm","762x39mm"],["ZC807","7.62x39mm","762x39mm"],["BM59","7.62x51mm","762x51mm"],["FAL","7.62x51mm","762x51mm"],["G3","7.62x51mm","762x51mm"],["M110","7.62x51mm","762x51mm"],["M14","7.62x51mm","762x51mm"],["M24","7.62x51mm","762x51mm"],["MG3","7.62x51mm","762x51mm"],["MK14","7.62x51mm","762x51mm"],["DBR","7.62x54mm","762x54mmR"],["M300","7.62x54mm","762x54mmR"],["SVDS","7.62x54mm","762x54mmR"],["SVTU","7.62x54mm","762x54mmR"],["莫辛","7.62x54mm","762x54mmR"],["DP12","12 Gauge","12x70mm"],["M870","12 Gauge","12x70mm"],["MP133","12 Gauge","12x70mm"],["S12K","12 Gauge","12x70mm"],["SPR310","12 Gauge","12x70mm"],["USAS12","12 Gauge","12x70mm"],["ML 杠杆枪",".44 Mag",".44mm"],["RM44左轮",".44 Mag",".44mm"],["沙漠之鹰",".44 Mag",".44mm"],["黄金沙鹰",".44 Mag",".44mm"],["M1911",".45 ACP",".45mm"],["M3A1",".45 ACP",".45mm"],["M45A1",".45 ACP",".45mm"],["MAC10",".45 ACP",".45mm"],["MPF45",".45 ACP",".45mm"],["UMP45",".45 ACP",".45mm"],["Vector45",".45 ACP",".45mm"],["AR30",".338 Lapua Mag",".338"],["SJ16",".338 Lapua Mag",".338"],["AX50","12.7x99mm","127x99mm"]],"bl":{"AKM":[["固定枪管",0,62,0,0]],"M4A1":[["截短枪管",-4,51,0,-4],["标准枪管",0,56,0,0],["卡宾枪管",1,59,0,1],["加长枪管",4,61,0,4]],"FAL":[["截短枪管",-9,48,-4,-5],["标准枪管",-4,54,-4,0],["加长枪管",-3,58,-4,1]],"H416":[["截短枪管",1,37,1,0],["配件枪管",1,42,1,0],["中型枪管",1,52,1,0],["标准枪管",5,55,1,4]],"MDR":[["制式枪管",4,59,4,0],["加长枪管",4,63,4,0]],"AK102":[["固定枪管",0,57,0,0]],"AK74N":[["固定枪管",0,48,0,0]],"AKS74U":[["固定枪管",-5,38,-5,0]],"AUG":[["固定枪管",4,53,4,0]],"F2000":[["固定枪管",2,55,2,0]],"AR57":[["专用枪管",2,58,2,0]],"ACE31":[["标准枪管",-1,66,1,-2],["加长枪管",3,68,1,2]],"AEK":[["固定枪管",1,65,1,0]],"AN94":[["固定枪管",4,67,4,0]],"FAMAS":[["320mm枪管",2,42,2,0],["标准枪管",2,46,2,0],["620mm枪管",4,54,2,2]],"SCAR-L":[["10英寸枪管",0,50,3,-3],["14英寸枪管",3,52,3,0],["18英寸枪管",6,54,3,3]],"T951":[["标准枪管",0,51,0,0],["加长枪管",2,53,0,2]],"T03":[["固定枪管",2,61,2,0]],"SG550":[["短枪管",-3,42,-3,0],["卡宾枪管",-3,47,-3,0],["长枪管",-3,50,-3,0]],"G3":[["12英寸枪管",-9,42,-7,-2],["16英寸枪管",-8,45,-7,-1],["18英寸枪管",-6,48,-7,1]],"AK12":[["固定枪管",4,64,4,0]],"MCX":[["固定枪管",2,40,2,0]],"T191":[["191型枪管",2,55,2,0],["192型枪管",2,55,2,0]],"T192":[["191型枪管",3,47,3,0],["192型枪管",3,47,3,0]],"PCC-9":[["短枪管",0,39,4,-4],["中枪管",4,41,4,0],["长枪管",8,43,4,4]],"AMB-17":[["固定枪管",2,43,2,0]],"ZC807":[["常规枪管",1,56,1,0]],"Groza":[["固定枪管",2,70,2,0]],"A545":[["固定枪管",7,48,7,0]],"AK15SC":[["固定枪管",0,44,0,0]],"MP5":[["固定枪管",2,32,2,0]],"MPX":[["超短枪管",0,33,2,-2],["截短枪管",2,37,2,0],["标准枪管",4,39,2,2],["加长枪管",6,41,2,4]],"P90":[["截短枪管",-1,41,-1,0],["标准枪管",3,45,-1,4]],"UZI":[["固定枪管",0,33,0,0]],"UMP45":[["标准枪管",0,39,0,0]],"MAC10":[["标准枪管",0,38,0,0],["加长枪管",0,39,0,0],["卡宾枪管",0,41,0,0]],"M3A1":[["标准枪管",-3,39,-3,0]],"T79":[["固定枪管",-2,38,-2,0]],"MP40":[["固定枪管",3,32,3,0]],"QC61":[["中型枪管",-3,38,-3,0]],"MPF45":[["固定枪管",-2,30,-2,0]],"T85":[["微冲枪管",-2,42,-2,0],["轻冲枪管",-2,44,-2,0]],"Vector45":[["中枪管",-5,33,-5,0],["标准枪管",-5,35,-5,0],["卡宾枪管",-5,37,-5,0]],"Vector9":[["标准枪管",0,39,0,0],["卡宾枪管",0,41,0,0]],"Banshee":[["短枪管",3,38,3,0],["标准枪管",3,38,3,0],["长枪管",3,45,3,0]],"PP19":[["专用枪管",2,30,2,0],["长枪管",4,36,2,2]],"SA85M":[["固定枪管",-3,61,-3,0]],"SKS":[["固定枪管",3,67,3,0]],"M14":[["标准枪管",2,73,2,0],["加长枪管",2,78,2,0]],"M96":[["固定枪管",2,66,2,0]],"Mini14":[["固定枪管",7,77,7,0]],"BM59":[["固定枪管",-1,69,-1,0]],"SVTU":[["固定枪管",-9,73,-9,0]],"M16":[["截短枪管",-2,76,2,-4],["标准枪管",2,81,2,0],["卡宾枪管",3,84,2,1],["加长枪管",6,86,2,4]],"Suomi":[["固定枪管",0,25,0,0]],"BIZON":[["固定枪管",0,55,0,0]],"TS5":[["固定枪管",0,30,0,0]],"SVDS":[["22英寸枪管",7,93,7,0]],"VSS":[["一体化消音器",0,37,0,0],["一体加长消音器",0,42,0,0]],"MK14":[["标准枪管",2,61,2,0],["加长枪管",2,66,2,0]],"M110":[["标准枪管",3,91,3,0],["加长枪管",3,97,3,0]],"T88":[["标准枪管",13,117,13,0]],"U191":[["191型精准步枪枪管",5,69,4,1]],"ML 杠杆枪":[["固定枪管",0,74,0,0]],"AX50":[["固定枪管",0,180,0,0]],"AR30":[["固定枪管",2,150,2,0]],"DBR":[["固定枪管",-18,70,-18,0]],"莫辛":[["截短式枪管",-14,80,-8,-6],["卡宾式枪管",-8,92,-8,0],["狙击式枪管",-7,100,-8,1]],"SJ16":[["固定枪管",2,125,2,0]],"M24":[["固定枪管",9,120,9,0]],"M870":[["截短式枪管",1,10,5,-4],["标准枪管",5,14,5,0],["加长式枪管",9,18,5,4]],"MP133":[["510mm枪管",-3,12,1,-4],["540mm枪管",-1,13,1,-2],["610mm枪管",0,13,1,-1],["660mm枪管",2,14,1,1],["710mm枪管",3,15,1,2],["750mm枪管",5,17,1,4]],"S12K":[["固定枪管",3,16,3,0]],"USAS12":[["固定枪管",3,14,3,0]],"SPR310":[["固定枪管",1,12,1,0]],"DP12":[["标准枪管",4,31,5,-1],["加长枪管",7,37,5,2]],"RPK16":[["标准枪管",5,61,5,0],["加长枪管",5,67,5,0]],"MG3":[["固定枪管",-5,150,-5,0]],"G17":[["经典枪管",-4,16,-4,0],["螺纹枪管",-4,16,-4,0]],"M9A3":[["螺纹枪管",-4,20,-4,0]],"G18C":[["标准枪管",-4,14,-4,0]],"沙漠之鹰":[["固定枪管",0,36,0,0]],"T54":[["固定枪管",-4,14,-4,0]],"M1911":[["标准枪管",1,18,1,0],["螺纹枪管",1,18,1,0]],"MP9":[["固定枪管",0,13,0,0]],"黄金沙鹰":[["固定枪管",0,36,0,0]],"T05":[["固定枪管",-5,16,-5,0]],"M45A1":[["标准枪管",2,14,2,0],["螺纹枪管",2,14,2,0]],"CZ52":[["固定枪管",-4,18,-4,0]],"F57":[["专用枪管",2,23,2,0],["雷霆枪管",2,23,2,0]],"M300":[["标准枪管",-5,40,-5,0],["加长枪管",-5,54,-5,0]],"RM44左轮":[["固定枪管",0,25,0,0]]},"cv":{"default":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,0.9773],[0.8,0.9722],[0.9,0.9643],[1.0,0.95],[1.1,0.9394],[1.2,0.8763],[1.3,0.8399],[1.4,0.815],[1.5,0.7966],[1.6,0.782],[1.7,0.7701],[1.8,0.7601],[1.9,0.7516],[2.0,0.7441],[2.1,0.7375],[2.2,0.7316],[2.3,0.7263],[2.4,0.7215],[2.5,0.7171],[2.6,0.7131],[2.7,0.7094],[2.8,0.7059],[2.9,0.7027],[3.0,0.6996]],"_545":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,1.0],[0.8,1.0],[0.9,1.0],[1.0,1.0],[1.1,1.0],[1.2,1.0],[1.3,0.9],[1.4,0.875],[3.0,0.8]],"_5728":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.9,1.0],[1.0,0.95],[1.1,0.9394],[1.2,0.8763],[1.3,0.8399],[1.4,0.815],[1.5,0.7966],[1.6,0.782],[1.7,0.7701],[1.8,0.7601],[1.9,0.7516],[2.0,0.7441],[2.1,0.7375],[2.2,0.7316],[2.3,0.7263],[2.4,0.7215],[2.5,0.7171],[2.6,0.7131],[2.7,0.7094],[2.8,0.7059],[2.9,0.7027],[3.0,0.6996]],"_76251":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[1.0,1.0],[1.1,0.9394],[1.2,0.8763],[1.3,0.8399],[1.4,0.815],[1.5,0.7966],[1.6,0.782],[1.7,0.7701],[1.8,0.7601],[1.9,0.7516],[2.0,0.7441],[2.1,0.7375],[2.2,0.7316],[2.3,0.7263],[2.4,0.7215],[2.5,0.7171],[2.6,0.7131],[2.7,0.7094],[2.8,0.7059],[2.9,0.7027],[3.0,0.6996]],"_338":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,1.0],[0.8,1.0],[0.9,1.0],[1.0,1.0],[1.1,1.0],[1.2,1.0],[1.3,0.9],[1.4,0.875],[3.0,0.8]],"_44":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,1.0],[0.8,1.0],[0.9,1.0],[1.0,1.0],[1.1,1.0],[1.2,1.0],[1.3,0.9],[1.4,0.875],[3.0,0.8]],"_12X70":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,1.0],[0.8,1.0],[0.9,1.0],[1.0,1.0],[1.1,1.0],[1.2,1.0],[1.3,0.9],[1.4,0.875],[3.0,0.8]],"_12X70_2":[[0.0,1.0],[0.1,1.0],[0.2,1.0],[0.3,1.0],[0.4,1.0],[0.5,1.0],[0.6,1.0],[0.7,1.0],[0.8,1.0],[0.9,1.0],[1.0,1.0],[1.1,1.0],[1.2,1.0],[1.3,1.0],[1.4,1.0],[2.0,1.0],[3.0,0.8]]}};
+
+
+
+
+
+
+const MY_VER   = 'V1.2';
+const REPO     = 'StarryNightSquad/Arena-Breakout-Infinity';   
+const UPD_KEY  = '穿甲计算器';               
+
+
+
+const BLUNT_DECAY = true;
+const DMG_DECAY   = true;
+const UPD_SRC  = {
+  api: `https://api.github.com/repos/${REPO}/contents/version.json`,
+  raw: `https://raw.githubusercontent.com/${REPO}/main/version.json`,
+};
+
+
+function curveKey(cal){
+  if (cal === '5.45x39mm') return '_545';
+  if (cal === '5.7x28mm')  return '_5728';
+  if (cal === '7.62x51mm') return '_76251';
+  if (cal === '.338 Lapua Mag') return '_338';
+  if (cal === '.44 Mag')   return '_44';
+  if (cal === '12 Gauge')  return '_12X70';
+  return 'default';
+}
+
+function coefAt(keys, x){
+  if (!keys || !keys.length) return 1;
+  if (x <= keys[0][0]) return keys[0][1];
+  const last = keys[keys.length - 1];
+  if (x >= last[0]) return last[1];
+  for (let i = 1; i < keys.length; i++){
+    if (keys[i][0] >= x){
+      const [x0, v0] = keys[i - 1], [x1, v1] = keys[i];
+      return v0 + (x - x0) / (x1 - x0) * (v1 - v0);
+    }
+  }
+  return last[1];
+}
+function sgn(n){
+  n = Math.round(n);
+  return (n < 0 ? '−' : '+') + Math.abs(n);
+}
+function effArmor(anti, ratio){
+  return anti * Math.min(1.21 - 50 / (200 * ratio + 45), 1.0);
+}
+
+function partCode(type){
+  if (type === '头盔') return 1;
+  if (type === '护甲') return 2;
+  return 8;                        
+}
+function prob(gap, level, ratio, code){
+  if (gap <= 0) return 1;          
+  if (ratio > 0.9999) return 0;    
+  if (code === 2 && level >= 5) return 0;   
+  const special = (code === 1 || code === 8);
+  if (gap <= 10) return special ? Math.max(0, 0.31 - 0.02 * gap)
+                                : Math.max(0, (21 - gap) * 0.0407166);
+  if (gap <= 15) return special ? 0 : 0.0316 * Math.sqrt(21 - gap);
+  return 0;
+}
+function scale(K){
+  if (K <= -10) return 0.60;
+  if (K <= 9)  return 0.65 + 0.005 * K;
+  if (K <= 19) return 0.80 + 0.01 * K;
+  return 1.0;
+}
+
+const wSel = document.getElementById('weapon');
+const bSel = document.getElementById('bullet');
+const blSel = document.getElementById('barrel');
+const aSel = document.getElementById('armor');
+const dCur = document.getElementById('durCur');
+const dMax = document.getElementById('durMax');
+const dSel = document.getElementById('dist');
+
+
+(function(){
+  const g = {};
+  DATA.w.forEach((w, i) => { (g[w[1]] = g[w[1]] || []).push([i, w]); });
+  Object.keys(g).forEach(cal => {
+    const og = document.createElement('optgroup'); og.label = cal;
+    g[cal].forEach(([i, w]) => {
+      const o = document.createElement('option'); o.value = i;
+      const base = (DATA.bl && DATA.bl[w[0]] && DATA.bl[w[0]][0]) ? DATA.bl[w[0]][0][3] : 0;
+      o.textContent = `${w[0]} · 本体击发威力 ${sgn(base)}`;
+      og.appendChild(o);
+    });
+    wSel.appendChild(og);
+  });
+  const i = DATA.w.findIndex(w => w[0] === 'MP5');
+  wSel.value = i >= 0 ? i : 0;
+})();
+
+
+function fillBullets(keepName){
+  const cal = DATA.w[+wSel.value][1];
+  const ids = [];
+  DATA.b.forEach((b, i) => { if (b[0] === cal) ids.push(i); });
+  bSel.innerHTML = ids.map(i => {
+    const b = DATA.b[i];
+    return `<option value="${i}">${b[1]}  穿透 ${b[2]} / 伤害 ${b[3]} / 甲伤 ${b[4]}</option>`;
+  }).join('');
+  const hit = keepName ? ids.find(i => DATA.b[i][1] === keepName) : null;
+  const best = ids.reduce((m, i) => DATA.b[i][2] > DATA.b[m][2] ? i : m, ids[0]);
+  bSel.value = hit != null ? hit : best;
+}
+
+
+function barrelList(){
+  const nm = DATA.w[+wSel.value][0];
+  return (DATA.bl && DATA.bl[nm]) || [['固定枪管', 0, 0]];
+}
+function fillBarrels(){
+  const list = barrelList();
+  blSel.innerHTML = list.map((b, i) => {
+    
+    if (b[0] === '固定枪管' || b[0] === '/')
+      return `<option value="${i}">无法改装枪管 · 射程 ${b[2]}m</option>`;
+    return `<option value="${i}">${b[0]} · 枪管 ${sgn(b[4])} / 射程 ${b[2]}m</option>`;
+  }).join('');
+  
+  let d = list.findIndex(b => b[0].includes('标准'));
+  if (d < 0) d = list.reduce((best, b, i) =>
+      Math.abs(b[1]) < Math.abs(list[best][1]) ? i : best, 0);
+  blSel.value = d;
+}
+
+(function(){
+  const g = {};
+  DATA.a.forEach((a, i) => { (g[a[1]] = g[a[1]] || []).push([i, a]); });
+  Object.keys(g).sort((x, y) => x - y).forEach(lv => {
+    const og = document.createElement('optgroup'); og.label = lv + ' 级';
+    g[lv].forEach(([i, a]) => {
+      const o = document.createElement('option'); o.value = i;
+      o.textContent = `[${a[6]}] ${a[0]}  · 抗穿 ${a[2]} / 耐久 ${a[3]} / 损毁 ${a[4]}`;
+      og.appendChild(o);
+    });
+    aSel.appendChild(og);
+  });
+  const i = DATA.a.findIndex(a => a[0] === 'BT6重型防弹衣');
+  aSel.value = i >= 0 ? i : 0;
+})();
+
+
+function syncDura(){
+  const a = DATA.a[+aSel.value];
+  dMax.value = a[3];
+  dCur.value = a[3];
+}
+
+function calc(){
+  const b = DATA.b[+bSel.value];
+  const a = DATA.a[+aSel.value];
+  const w = DATA.w[+wSel.value];
+  const bl = barrelList()[+blSel.value] || ['固定枪管', 0, 0, 0, 0];
+  const [blName, blTotal, blRange, wBase, blDelta] = bl;
+  const power = blTotal;          
+
+  const [cal, bname, pen, dmg, ad, bodyProb, blockF, throughF] = b;
+  const [aname, lv, anti, durNom, destruct, mat] = a;
+
+  
+  const dist = Math.max(0, Math.min(200, +dSel.value || 0));
+  const rng = blRange > 0 ? blRange : 100;
+  const xr = dist / rng;
+  const keys = DATA.cv[curveKey(cal)];
+  const coef = coefAt(keys, xr);
+  const floorCoef = keys ? keys[keys.length - 1][1] : 1;   
+  const minPen = pen * floorCoef;                          
+  const atFloor = keys && xr >= keys[keys.length - 1][0];
+  const penEff = pen * coef;
+
+  const Kd = penEff - anti;
+  const fDmg = scale(Kd);
+  
+  const raw = dmg + power;
+  const base = raw * (DMG_DECAY ? coef : 1);
+  const blunt = raw * (BLUNT_DECAY ? coef : 1) * blockF;
+
+  
+  const dmax = Math.max(0.1, +dMax.value || durNom);
+  const dcur = Math.min(dmax, Math.max(0, +dCur.value || 0));
+  const ratio0 = dcur / dmax;
+  const broken0 = ratio0 <= 0;
+  const S0 = effArmor(anti, ratio0);
+  const Kp0 = penEff - S0;
+  const pCode = partCode(a[6]);
+  const p0 = broken0 ? 1 : prob(-Kp0, lv, ratio0, pCode);
+  const f0 = broken0 ? 1.0 : fDmg;
+
+  const per = ad * destruct;   
+  const pTxt = sgn(power);
+
+  const metrics = [
+    ['击穿伤害', (base * f0).toFixed(2), `${dmg}${pTxt} × ${f0.toFixed(3)} × ${coef.toFixed(3)}`],
+    ['未击穿（钝伤）', blunt.toFixed(2), `× ${blockF} × 衰减 ${coef.toFixed(3)}`],
+    ['每发掉耐久', per.toFixed(2), `甲伤 ${ad} × 损毁 ${destruct}（头 / 胸，未计距离）`],
+    ['有效穿透', penEff.toFixed(1),
+      `标称 ${pen} × 衰减 ${coef.toFixed(3)} · 最低 ${minPen.toFixed(1)}`],
+    ['穿甲概率', broken0 ? '100%' : (p0 * 100).toFixed(1) + '%',
+      broken0 ? '护甲失效，必定击穿'
+      : (Kp0 < 0 && ratio0 > 0.9999) ? '满耐久：必定打不进'
+      : (pCode === 2 && lv >= 5) ? '5–6 级胸甲：二值判定（无概率）'
+      : pCode === 2 ? '胸甲 1–4 级：概率判定'
+      : pCode === 1 ? '头盔：全等级概率判定' : '面罩/未覆盖：概率判定'],
+    ['穿体概率', (bodyProb * 100).toFixed(0) + '%', '另计：穿过人体继续飞行'],
+  ];
+  document.getElementById('distV').textContent = dist;
+  document.getElementById('distInfo').textContent =
+    `射程 ${rng} m · x ${xr.toFixed(2)} · 衰减 ${coef.toFixed(3)} · 有效穿透 ${penEff.toFixed(1)} / ${pen}`
+    + (atFloor ? ' · 已到衰减底' : '');
+  document.getElementById('metrics').innerHTML = metrics.map((m, i) =>
+    `<div class="m${i === 0 ? ' hl' : ''}"><div class="k">${m[0]}</div><div class="v">${m[1]}</div><div class="n">${m[2]}</div></div>`
+  ).join('');
+
+  let rows = '', cur = dcur, n = 0;   
+  while (n < 60){
+    const broken = cur <= 0.01;              
+    const r = broken ? 0 : cur / dmax;
+    const S = effArmor(anti, r);
+    const Kp = penEff - S;
+    const p = broken ? 1 : prob(-Kp, lv, r, pCode);
+    const f = broken ? 1.0 : fDmg;
+    const hit = base * f;
+    
+    const willBreak = !broken && per > 0 && cur - per <= 0.01;
+    const tag = broken ? '<span class="tag t-b">护甲失效</span>'
+              : willBreak ? '<span class="tag t-n">碎甲</span>'
+              : p >= 1 ? '<span class="tag t-b">必穿</span>'
+              : p <= 0 ? '<span class="tag t-n">不穿</span>'
+              : `<span class="tag t-p">${(p * 100).toFixed(1)}%</span>`;
+    
+    const penDmg  = p > 0 ? hit : 0;
+    
+    const thruDmg = (p > 0 && bodyProb > 0) ? hit * throughF : 0;
+    rows += `<tr${willBreak ? ' class="last-intact"' : ''}>
+      <td>${n}</td><td>${broken ? 0 : (cur < 10 ? cur.toFixed(2) : cur.toFixed(1))}</td><td>${(r * 100).toFixed(1)}%</td>
+      <td>${penDmg.toFixed(2)}</td>
+      <td>${thruDmg > 0 ? thruDmg.toFixed(2) : '0'}</td>
+      <td>${tag}</td>
+    </tr>`;
+    if (broken || per <= 0) break;   
+    cur -= per;
+    n++;
+  }
+  document.querySelector('#table tbody').innerHTML = rows;
+
+  const elInfo = document.getElementById('info'), elInfo2 = document.getElementById('info2');
+  if (elInfo) elInfo.textContent =
+    `${w[0]}（武器 ${sgn(wBase)}）· ${blName}（枪管 ${sgn(blDelta)}）= 击发威力 ${sgn(wBase + blDelta)} · 射程 ${blRange}m · 距离 ${dist}m（衰减 ${coef.toFixed(3)}）`
+    + ` → ${bname}（${cal}）：穿透 ${pen} / 伤害 ${dmg} / 甲伤 ${ad} / 钝伤系数 ${blockF}`;
+  if (elInfo2) elInfo2.textContent =
+    `${aname}（${lv} 级 · ${mat}）：抗穿 ${anti} / 耐久 ${dcur.toFixed(1)} / ${dmax.toFixed(1)} / 损毁 ${destruct}`;
+}
+
+wSel.addEventListener('change', () => { fillBarrels(); fillBullets(); calc(); });
+blSel.addEventListener('change', calc);
+bSel.addEventListener('change', calc);
+aSel.addEventListener('change', () => { syncDura(); calc(); });
+dSel.addEventListener('input', calc);
+['durCur','durMax'].forEach(id =>
+  document.getElementById(id).addEventListener('input', calc));
+fillBarrels();
+fillBullets('7N31');
+syncDura();
+calc();
+
+
+(function(){
+  const btn = document.getElementById('btnContact');
+  const panel = document.getElementById('panelContact');
+  const repo = document.getElementById('miRepo');
+  if (repo && REPO) repo.href = `https://github.com/${REPO}`;
+  if (!btn || !panel) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const on = panel.classList.toggle('open');
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+  panel.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => {
+    panel.classList.remove('open');
+    btn.classList.remove('on');
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    panel.classList.remove('open');
+    btn.classList.remove('on');
+    btn.setAttribute('aria-expanded', 'false');
+  });
+})();
+
+
+
+
+
+async function fetchRemoteVersion(){
+  try {
+    const r = await fetch(UPD_SRC.api + '?t=' + Date.now(),
+      { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' });
+    if (r.ok) return await r.json();
+  } catch (e) {  }
+  const r2 = await fetch(UPD_SRC.raw + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r2.ok) throw new Error('HTTP ' + r2.status);
+  return await r2.json();
+}
+
+function cmpVer(a, b){
+  const pa = String(a).replace(/^v/i, '').split('.').map(x => parseInt(x, 10) || 0);
+  const pb = String(b).replace(/^v/i, '').split('.').map(x => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++){
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+(function(){
+  const btn = document.getElementById('btnCheckUpd');
+  const msg = document.getElementById('updMsg');
+  if (!btn || !msg) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = '检查中…';
+    msg.className = 'updmsg';
+    msg.textContent = '';
+    try {
+      const j = await fetchRemoteVersion();
+      
+      const remote = typeof j === 'string' ? j
+                   : (j[UPD_KEY] || j.version || j[Object.keys(j)[0]]);
+      if (!remote) throw new Error('version.json 里没有对应条目');
+      if (cmpVer(MY_VER, remote) >= 0){
+        msg.className = 'updmsg ok';
+        msg.textContent = '已是最新版（' + MY_VER + '）';
+      } else {
+        msg.className = 'updmsg new';
+        msg.innerHTML = '有新版本 ' + remote + '（当前 ' + MY_VER + '），'
+                      + '<a href="https://github.com/' + REPO + '" target="_blank" rel="noopener">到仓库获取</a>';
+      }
+    } catch (e) {
+      msg.className = 'updmsg err';
+      msg.textContent = '检查失败（没联网，或仓库暂时访问不了）—— 请确认能正常访问 GitHub';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '检查更新';
+    }
+  });
+})();
+
+const FX_BUILD='fx-abi-20261128-4fc2551';
+
+
+(function(){
+  const bad=[];
+  const brand=document.querySelector('.credit .brand');
+  if(!brand || !/繁星攻略组/.test(brand.textContent||'')) bad.push('署名');
+  const ver=document.getElementById('verBadge');
+  if(!ver) bad.push('版本徽标');
+  try{
+    const b=DATA.b.find(x=>x[1]==='7N31');
+    if(!b || b[2]!==40 || b[3]!==44) bad.push('7N31 数值');
+    if(!DATA.a || DATA.a.length<100) bad.push('护甲表');
+    if(!DATA.w || DATA.w.length<80) bad.push('武器表');
+    if(!DATA.b || DATA.b.length<80) bad.push('子弹表');
+    if(!DATA.bl || !DATA.bl['MPX']) bad.push('枪管表');
+  }catch(e){ bad.push('数据结构'); }
+  if(bad.length){
+    const bar=document.createElement('div');
+    bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:9px 16px;'
+      +'background:#7a2b2b;color:#ffe3e3;font:12px/1.6 system-ui,"Microsoft YaHei",sans-serif;text-align:center;'
+      +'box-shadow:0 -2px 12px rgba(0,0,0,.35)';
+    bar.textContent='⚠ 本页面的署名或数据被改动（'+bad.join('、')+'），不是「繁星攻略组」发布的原始版本，数值请勿直接采信。';
+    document.body.appendChild(bar);
+  }
+})();
+</script>
+</body>
+</html>
